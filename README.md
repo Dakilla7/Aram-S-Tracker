@@ -27,7 +27,7 @@ A lightweight, local desktop application for League of Legends designed to track
 
 
 ## to create the .exe with pyinstaller use the command:
-* **pyinstaller --noconfirm --clean --onefile --noconsole --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module cryptography --icon="coolcat.ico" --name "ARAM S Tracker" aram_gui.py
+* ** pyinstaller --noconfirm --clean --onefile --noconsole --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module cryptography --icon="coolcat.ico" --name "ARAM S Tracker" aram_gui.py
 
 ---
 
