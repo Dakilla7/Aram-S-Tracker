@@ -26,8 +26,8 @@ A lightweight, local desktop application for League of Legends designed to track
 4. *(Optional)* If your League client is installed in a custom directory, click the **📁 Set LoL Folder** button in the app to point it to your `League of Legends` installation directory.
 
 
-for creating the .exe with pyinstaller use the command:
-pyinstaller --noconfirm --clean --onefile --noconsole --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module cryptography --icon="coolcat.ico" --name "ARAM S Tracker" aram_gui.py
+## to create the .exe with pyinstaller use the command:
+* **pyinstaller --noconfirm --clean --onefile --noconsole --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module cryptography --icon="coolcat.ico" --name "ARAM S Tracker" aram_gui.py
 
 ---
 
