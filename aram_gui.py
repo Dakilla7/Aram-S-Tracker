@@ -25,7 +25,7 @@ urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
 APP_VERSION = "1.1.0"
-GITHUB_REPO = "Dakilla7/Aram-S-Tracker"  # e.g. "coolcat/aram-s-tracker"
+GITHUB_REPO = "Dakilla7/Aram-S-Tracker"  # e.g. "GitHub-Name/Repository-Name"
 # ===================================================================
 
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "AramSTracker")
