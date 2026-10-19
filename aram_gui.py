@@ -24,7 +24,7 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "Dakilla7/Aram-S-Tracker"  # e.g. "GitHub-Name/Repository-Name"
 # ===================================================================
 
@@ -459,12 +459,23 @@ class AramTrackerApp:
                 if os.path.exists(old_exe):
                     os.remove(old_exe)
 
-                # Rename currently running .exe -> .exe.old, write new .exe, and relaunch!
+                # Rename currently running .exe -> .exe.old and write new .exe
                 os.rename(cur_exe, old_exe)
                 with open(cur_exe, "wb") as f:
                     f.write(r.content)
 
-                subprocess.Popen([cur_exe])
+                # Strip old PyInstaller temp-folder variables and force a fresh unpack
+                clean_env = {
+                    k: v for k, v in os.environ.items()
+                    if not k.startswith("_PYI") and k not in ("_MEIPASS2", "TCL_LIBRARY", "TK_LIBRARY")
+                }
+                clean_env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+
+                subprocess.Popen(
+                    [cur_exe],
+                    env=clean_env,
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                )
                 self.root.after(0, self.root.destroy)
             except Exception as e:
                 self.root.after(0, lambda err=str(e): messagebox.showerror("Update Failed", err))
