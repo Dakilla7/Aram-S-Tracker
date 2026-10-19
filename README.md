@@ -1,8 +1,4 @@
 # Aram-S-Tracker
-tracks the League of Legends challenge progression of "all random all champions" 
-
-
-# ⚔️ ARAM S-Grade & Mastery Tracker
 
 A lightweight, local desktop application for League of Legends designed to track your **All Random All Champions** challenge progress, monitor your capstone milestone points, and scan active ARAM Champ Select lobbies in real-time.
 
