@@ -5,8 +5,7 @@ A lightweight, local desktop application for League of Legends designed to track
 ---
 <img width="715" height="695" alt="png for readme" src="https://github.com/user-attachments/assets/81fb5a39-7ae6-480a-829c-733d12855c12" />
 ---
-<img width="715" height="695" alt="png for readme" src="https://github.com/user-attachments/assets/d5cc51f8-e10a-48b4-99e7-a7db26c2bc93" />
-
+<img width="944" height="697" alt="readmescreenshot" src="https://github.com/user-attachments/assets/9bf15296-74fb-45d1-96a8-5c30b23e3666" />
 ---
 
 ## ✨ Features
