@@ -3,8 +3,6 @@
 A lightweight, local desktop application for League of Legends designed to track your **All Random All Champions** challenge progress, monitor your capstone milestone points, and scan active ARAM Champ Select lobbies in real-time.
 
 ---
-<img width="715" height="695" alt="png for readme" src="https://github.com/user-attachments/assets/81fb5a39-7ae6-480a-829c-733d12855c12" />
----
 <img width="944" height="697" alt="readmescreenshot" src="https://github.com/user-attachments/assets/9bf15296-74fb-45d1-96a8-5c30b23e3666" />
 ---
 
@@ -38,4 +36,6 @@ A lightweight, local desktop application for League of Legends designed to track
 * **Python** (Tkinter GUI & Requests)
 * **Pillow (PIL)** for real-time LCU champion portrait rendering
 * **PyInstaller** for standalone executable compilation
-
+---
+<img width="715" height="695" alt="png for readme" src="https://github.com/user-attachments/assets/81fb5a39-7ae6-480a-829c-733d12855c12" />
+---
