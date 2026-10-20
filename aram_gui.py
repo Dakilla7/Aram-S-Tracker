@@ -24,8 +24,8 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.2.0"
-GITHUB_REPO = "Dakilla7/Aram-S-Tracker"  # e.g. "GitHub-Name/Repository-Name"
+APP_VERSION = "1.3.1"
+GITHUB_REPO = "Dakilla7/Aram-S-Tracker"
 # ===================================================================
 
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "AramSTracker")
@@ -126,7 +126,6 @@ def save_lol_dir(lol_dir):
 
 
 def get_riot_metadata_lockfile():
-    """Read Riot's official ProgramData metadata to find League of Legends on ANY drive/folder."""
     program_data = os.environ.get("PROGRAMDATA", r"C:\ProgramData")
     yaml_path = os.path.join(
         program_data, "Riot Games", "Metadata", "league_of_legends.live",
@@ -146,24 +145,15 @@ def get_riot_metadata_lockfile():
 
 
 def find_lockfile():
-    """Automatically locate the League lockfile on any friend's PC without hardcoding."""
     candidates = []
-
-    # 1. User-selected folder (if they ever used the 'Set Folder' button)
     saved_dir = load_saved_lol_dir()
     if saved_dir:
         candidates.append(os.path.join(saved_dir, "lockfile"))
-
-    # 2. Environment variable
     if os.environ.get("LOL_LOCKFILE"):
         candidates.append(os.environ["LOL_LOCKFILE"])
-
-    # 3. Official Riot Client ProgramData install path (works for custom folders on any drive!)
     meta_lockfile = get_riot_metadata_lockfile()
     if meta_lockfile:
         candidates.append(meta_lockfile)
-
-    # 4. Scan common folders across all drive letters (C: through Z:)
     for drive in string.ascii_uppercase:
         if os.path.exists(f"{drive}:\\"):
             candidates.append(f"{drive}:\\Riot Games\\League of Legends\\lockfile")
@@ -204,7 +194,6 @@ def lcu_client():
 
 
 def cleanup_old_exe():
-    """Remove leftover .exe.old file after a self-update."""
     if getattr(sys, "frozen", False):
         old_exe = sys.executable + ".old"
         if os.path.exists(old_exe):
@@ -218,19 +207,11 @@ def parse_version(v_str):
     return tuple(int(x) for x in re.findall(r"\d+", str(v_str)))
 
 
-def location_priority(loc):
-    if loc.startswith("👤 You"):
-        return 0
-    if loc.startswith("🪑 Bench"):
-        return 1
-    return 2
-
-
 class AramTrackerApp:
     def __init__(self, root):
         self.root = root
         self.root.title(f"⚔️ ARAM S-Grade Tracker v{APP_VERSION}")
-        self.root.geometry("720x670")
+        self.root.geometry("950x670")
         self.root.configure(bg="#0f172a")
 
         cleanup_old_exe()
@@ -251,7 +232,11 @@ class AramTrackerApp:
         self.id_to_name = {}
         self.raw_icons = {}
         self.tk_icons = {}
-        self.lobby = {}
+        self.summoner_cache = {}
+        self.team_lobby = []
+        self.bench_lobby = []
+        self.row_actions = {}
+
         self.update_download_url = None
         self.latest_version = None
         self.always_on_top = tk.BooleanVar(value=False)
@@ -319,7 +304,6 @@ class AramTrackerApp:
         )
         folder_btn.pack(side="left", padx=(0, 6))
 
-        # Hidden until an update is found on GitHub
         self.update_btn = tk.Button(
             ctrl_row, text="🚀 Update Available!", command=self._perform_self_update,
             bg="#16a34a", fg="#ffffff", activebackground="#15803d", activeforeground="#ffffff",
@@ -347,7 +331,7 @@ class AramTrackerApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=4)
 
-        # TAB 1: Live ARAM Lobby & Bench
+        # ================= TAB 1: SPLIT TEAM (LEFT) & BENCH (RIGHT) =================
         self.tab_lobby = tk.Frame(self.notebook, bg="#0f172a")
         self.notebook.add(self.tab_lobby, text="🎯 Live ARAM Lobby (0)")
 
@@ -362,21 +346,53 @@ class AramTrackerApp:
         self.lobby_banner.pack(side="left")
 
         self.action_btn = tk.Button(
-            top_bar, text="⚡ Swap / Trade (Double-Click)",
-            command=self._on_swap_or_trade,
+            top_bar, text="⚡ Swap / Trade Selected (or Double-Click)",
+            command=self._on_button_action,
             bg="#2563eb", fg="#ffffff", activebackground="#1d4ed8", activeforeground="#ffffff",
             relief="flat", padx=10, pady=3, font=("Segoe UI", 9, "bold"), cursor="hand2"
         )
         self.action_btn.pack(side="right")
 
-        lobby_cols = ("location", "status", "tier", "role")
-        self.lobby_tree = ttk.Treeview(self.tab_lobby, columns=lobby_cols, show="tree headings")
-        self._configure_lobby_columns(self.lobby_tree)
-        self.lobby_tree.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        split_pane = tk.PanedWindow(
+            self.tab_lobby, orient="horizontal", bg="#0f172a",
+            sashwidth=6, sashrelief="flat", bd=0
+        )
+        split_pane.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
-        self.lobby_tree.bind("<Double-1>", lambda _e: self._on_swap_or_trade())
+        # --- LEFT PANEL: YOUR TEAM ---
+        left_frame = tk.Frame(split_pane, bg="#1e293b", bd=1, relief="solid")
+        self.team_header_lbl = tk.Label(
+            left_frame, text="👥 YOUR TEAM (Double-Click Teammate to Trade)",
+            bg="#0f172a", fg="#38bdf8", font=("Segoe UI", 9, "bold"), pady=6, anchor="w", padx=8
+        )
+        self.team_header_lbl.pack(fill="x")
 
-        # TAB 2: All Champions List
+        team_cols = ("player", "status", "tier")
+        self.team_tree = ttk.Treeview(left_frame, columns=team_cols, show="tree headings")
+        self._configure_team_columns(self.team_tree)
+        self.team_tree.pack(fill="both", expand=True)
+        self.team_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.team_tree))
+        self.team_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.bench_tree))
+
+        # --- RIGHT PANEL: REROLL BENCH ---
+        right_frame = tk.Frame(split_pane, bg="#1e293b", bd=1, relief="solid")
+        self.bench_header_lbl = tk.Label(
+            right_frame, text="🪑 REROLL BENCH (Double-Click Champion to Grab)",
+            bg="#0f172a", fg="#4ade80", font=("Segoe UI", 9, "bold"), pady=6, anchor="w", padx=8
+        )
+        self.bench_header_lbl.pack(fill="x")
+
+        bench_cols = ("status", "tier", "role")
+        self.bench_tree = ttk.Treeview(right_frame, columns=bench_cols, show="tree headings")
+        self._configure_bench_columns(self.bench_tree)
+        self.bench_tree.pack(fill="both", expand=True)
+        self.bench_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.bench_tree))
+        self.bench_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.team_tree))
+
+        split_pane.add(left_frame, minsize=380, width=480)
+        split_pane.add(right_frame, minsize=340, width=440)
+
+        # ================= TAB 2: ALL CHAMPIONS LIST =================
         self.tab_all = tk.Frame(self.notebook, bg="#0f172a")
         self.notebook.add(self.tab_all, text="📋 All Champions (0)")
 
@@ -387,7 +403,7 @@ class AramTrackerApp:
                  font=("Segoe UI", 10)).pack(side="left", padx=(0, 4))
         search_entry = tk.Entry(filter_bar, textvariable=self.search_var,
                                 bg="#1e293b", fg="#ffffff", insertbackground="#ffffff",
-                                relief="flat", font=("Segoe UI", 10), width=18)
+                                relief="flat", font=("Segoe UI", 10), width=20)
         search_entry.pack(side="left", padx=(0, 10), ipady=3)
         self.search_var.trace_add("write", lambda *_: self._refresh_all_tree())
 
@@ -412,6 +428,10 @@ class AramTrackerApp:
         self.all_tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
+    def _clear_other_selection(self, other_tree):
+        if other_tree.selection():
+            other_tree.selection_remove(other_tree.selection())
+
     def _choose_lol_folder(self):
         folder = filedialog.askdirectory(title="Select your 'League of Legends' folder")
         if folder:
@@ -419,7 +439,6 @@ class AramTrackerApp:
             self.status_lbl.config(text=f"📁 Saved folder: {folder}", fg="#38bdf8")
 
     def _check_for_updates(self):
-        """Check GitHub Releases in the background for a newer version."""
         if "/" not in GITHUB_REPO or "YOUR_GITHUB" in GITHUB_REPO:
             return
         try:
@@ -459,12 +478,10 @@ class AramTrackerApp:
                 if os.path.exists(old_exe):
                     os.remove(old_exe)
 
-                # Rename currently running .exe -> .exe.old and write new .exe
                 os.rename(cur_exe, old_exe)
                 with open(cur_exe, "wb") as f:
                     f.write(r.content)
 
-                # Strip old PyInstaller temp-folder variables and force a fresh unpack
                 clean_env = {
                     k: v for k, v in os.environ.items()
                     if not k.startswith("_PYI") and k not in ("_MEIPASS2", "TCL_LIBRARY", "TK_LIBRARY")
@@ -483,36 +500,49 @@ class AramTrackerApp:
 
         threading.Thread(target=download_and_swap, daemon=True).start()
 
-    def _configure_lobby_columns(self, tree):
+    def _configure_team_columns(self, tree):
         tree.heading("#0", text="Champion", anchor="w")
-        tree.column("#0", width=185, anchor="w", stretch=True)
+        tree.column("#0", width=165, anchor="w", stretch=True)
 
-        tree.heading("location", text="Holder / Action")
-        tree.heading("status", text="S-Grade Status")
-        tree.heading("tier", text="ARAM Tier")
-        tree.heading("role", text="Primary Role")
+        tree.heading("player", text="Player (Riot ID)", anchor="w")
+        tree.heading("status", text="S-Grade", anchor="center")
+        tree.heading("tier", text="Tier", anchor="center")
 
-        tree.column("location", width=165, anchor="center", stretch=False)
-        tree.column("status", width=125, anchor="center", stretch=False)
-        tree.column("tier", width=80, anchor="center", stretch=False)
-        tree.column("role", width=105, anchor="center", stretch=False)
+        tree.column("player", width=165, anchor="w", stretch=True)
+        tree.column("status", width=105, anchor="center", stretch=False)
+        tree.column("tier", width=55, anchor="center", stretch=False)
 
         tree.tag_configure("need_you", background="#14532d", foreground="#86efac")
         tree.tag_configure("done_you", background="#1e3a8a", foreground="#93c5fd")
         tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
         tree.tag_configure("done", background="#1e293b", foreground="#64748b")
 
+    def _configure_bench_columns(self, tree):
+        tree.heading("#0", text="Bench Champion", anchor="w")
+        tree.column("#0", width=170, anchor="w", stretch=True)
+
+        tree.heading("status", text="S-Grade", anchor="center")
+        tree.heading("tier", text="Tier", anchor="center")
+        tree.heading("role", text="Role", anchor="center")
+
+        tree.column("status", width=110, anchor="center", stretch=False)
+        tree.column("tier", width=60, anchor="center", stretch=False)
+        tree.column("role", width=95, anchor="center", stretch=False)
+
+        tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
+        tree.tag_configure("done", background="#1e293b", foreground="#64748b")
+
     def _configure_all_columns(self, tree):
         tree.heading("#0", text="Champion", anchor="w")
-        tree.column("#0", width=220, anchor="w", stretch=True)
+        tree.column("#0", width=240, anchor="w", stretch=True)
 
         tree.heading("status", text="S-Grade Status")
         tree.heading("tier", text="ARAM Tier")
         tree.heading("role", text="Primary Role")
 
-        tree.column("status", width=145, anchor="center", stretch=False)
-        tree.column("tier", width=105, anchor="center", stretch=False)
-        tree.column("role", width=125, anchor="center", stretch=False)
+        tree.column("status", width=160, anchor="center", stretch=False)
+        tree.column("tier", width=110, anchor="center", stretch=False)
+        tree.column("role", width=140, anchor="center", stretch=False)
 
         tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
         tree.tag_configure("done", background="#1e293b", foreground="#64748b")
@@ -538,22 +568,27 @@ class AramTrackerApp:
         except Exception:
             return ""
 
-    def _on_swap_or_trade(self):
-        sel = self.lobby_tree.selection()
+    def _on_button_action(self):
+        if self.bench_tree.selection():
+            self._trigger_tree_action(self.bench_tree)
+        elif self.team_tree.selection():
+            self._trigger_tree_action(self.team_tree)
+
+    def _trigger_tree_action(self, tree):
+        sel = tree.selection()
         if not sel:
             return
-
-        champ_name = self.lobby_tree.item(sel[0], "text").strip()
-        entry = self.lobby.get(champ_name)
+        entry = self.row_actions.get(sel[0])
         if not entry:
             return
 
         action = entry.get("action")
         cid = entry.get("cid")
         tid = entry.get("tid")
+        champ_name = entry.get("champ", "Champion")
 
         if action == "self":
-            self.status_lbl.config(text=f"ℹ️ You already have {champ_name} equipped!", fg="#38bdf8")
+            self.status_lbl.config(text=f"ℹ️ You already have {champ_name}!", fg="#38bdf8")
             return
         if not action:
             self.status_lbl.config(text=f"⚠️ Cannot trade/swap {champ_name} right now.", fg="#fbbf24")
@@ -564,7 +599,7 @@ class AramTrackerApp:
                 _, _, post_req = lcu_client()
                 if action == "bench" and cid:
                     post_req(f"/lol-champ-select/v1/session/bench/swap/{cid}")
-                    msg = f"✅ Swapped to {champ_name} from the bench!"
+                    msg = f"✅ Grabbed {champ_name} from the bench!"
                 elif action == "trade_acc" and tid is not None:
                     post_req(f"/lol-champ-select/v1/session/champion-swaps/{tid}/accept")
                     msg = f"✅ Accepted trade for {champ_name}!"
@@ -572,13 +607,48 @@ class AramTrackerApp:
                     post_req(f"/lol-champ-select/v1/session/champion-swaps/{tid}/request")
                     msg = f"📨 Sent trade request for {champ_name}!"
                 else:
-                    msg = f"⚠️ Trade unavailable for {champ_name}."
+                    msg = f"⚠️ Action unavailable for {champ_name}."
                 self.root.after(0, lambda m=msg: self.status_lbl.config(text=m, fg="#4ade80"))
             except Exception as e:
                 self.root.after(0, lambda err=str(e): self.status_lbl.config(
                     text=f"⚠️ Action failed: {err[:45]}", fg="#f87171"))
 
         threading.Thread(target=run_action, daemon=True).start()
+
+    def _resolve_player_name(self, m, is_me, slot_idx, get_json):
+        gname = (m.get("gameName") or "").strip()
+        tagline = (m.get("tagLine") or "").strip()
+        dname = (m.get("displayName") or "").strip()
+
+        name_str = f"{gname}#{tagline}" if (gname and tagline) else (gname or dname)
+
+        sum_id = m.get("summonerId", 0)
+        puuid = (m.get("puuid") or "").strip()
+        cache_key = sum_id if (sum_id and sum_id > 0) else puuid
+
+        if not name_str and cache_key:
+            if cache_key in self.summoner_cache:
+                name_str = self.summoner_cache[cache_key]
+            else:
+                try:
+                    if sum_id and sum_id > 0:
+                        s_data = get_json(f"/lol-summoner/v1/summoners/{sum_id}")
+                    elif puuid:
+                        s_data = get_json(f"/lol-summoner/v2/summoners/puuid/{puuid}")
+                    else:
+                        s_data = {}
+                    gn = (s_data.get("gameName") or "").strip()
+                    tl = (s_data.get("tagLine") or "").strip()
+                    dn = (s_data.get("displayName") or s_data.get("internalName") or "").strip()
+                    name_str = f"{gn}#{tl}" if (gn and tl) else (gn or dn)
+                    if name_str:
+                        self.summoner_cache[cache_key] = name_str
+                except Exception:
+                    pass
+
+        if is_me:
+            return f"👤 {name_str} (You)" if name_str else "👤 You"
+        return f"👥 {name_str}" if name_str else f"👥 Teammate {slot_idx}"
 
     def _fetch_all_data(self, get_json):
         summary = [c for c in get_json("/lol-game-data/assets/v1/champion-summary.json") if c["id"] > 0]
@@ -625,79 +695,87 @@ class AramTrackerApp:
                     pass
         if loaded_new:
             self.root.after(0, self._refresh_all_tree)
-            self.root.after(0, self._refresh_lobby_tree)
+            self.root.after(0, self._refresh_lobby_trees)
 
     def _fetch_lobby(self, get_json):
         try:
             session = get_json("/lol-champ-select/v1/session")
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
-                return None
+                return None, None
             raise
 
         local_cell = session.get("localPlayerCellId", -1)
         swaps_list = session.get("championSwaps") or session.get("trades", [])
         cell_trades = {t.get("cellId"): t for t in swaps_list}
-        lobby_map = {}
 
-        bench_ids = [b.get("championId", 0) for b in session.get("benchChampions", [])]
-        bench_ids.extend(session.get("benchChampionIds", []))
-        for cid in bench_ids:
-            if cid in self.id_to_name:
-                lobby_map[self.id_to_name[cid]] = {
-                    "loc": "🪑 Bench (Grab)",
-                    "action": "bench",
-                    "cid": cid,
-                    "tid": None
-                }
-
-        for m in session.get("myTeam", []):
+        team_list = []
+        for idx, m in enumerate(session.get("myTeam", []), start=1):
             cell_id = m.get("cellId")
             is_me = (cell_id == local_cell)
+            player_name = self._resolve_player_name(m, is_me, idx, get_json)
+
+            cid = m.get("championId", 0)
+            intent = m.get("championPickIntent", 0)
+            active_id = cid if cid in self.id_to_name else (intent if intent in self.id_to_name else 0)
+            if not active_id:
+                continue
+
+            champ_name = self.id_to_name[active_id]
+            is_hover = (cid == 0 and intent > 0)
+
             trade_info = cell_trades.get(cell_id, {})
             tid = trade_info.get("id")
             tstate = trade_info.get("state", "")
 
-            cid = m.get("championId", 0)
-            intent = m.get("championPickIntent", 0)
-
             if is_me:
-                if cid in self.id_to_name:
-                    lobby_map[self.id_to_name[cid]] = {
-                        "loc": "👤 You", "action": "self", "cid": cid, "tid": None
-                    }
-                if intent in self.id_to_name and intent != cid:
-                    lobby_map[self.id_to_name[intent]] = {
-                        "loc": "👤 You (Hover)", "action": "self", "cid": intent, "tid": None
-                    }
+                act = "self"
             else:
                 if tstate == "RECEIVED":
-                    loc_label = "👥 Teammate (📩 Accept!)"
+                    player_name = f"{player_name} (📩 Accept!)"
                     act = "trade_acc"
                 elif tstate == "SENT":
-                    loc_label = "👥 Teammate (⏳ Sent)"
+                    player_name = f"{player_name} (⏳ Sent)"
                     act = None
                 elif tstate == "AVAILABLE" and tid is not None:
-                    loc_label = "👥 Teammate (🔄 Trade)"
                     act = "trade_req"
                 else:
-                    loc_label = "👥 Teammate"
                     act = None
 
-                if cid in self.id_to_name:
-                    lobby_map[self.id_to_name[cid]] = {
-                        "loc": loc_label, "action": act, "cid": cid, "tid": tid
-                    }
-                if intent in self.id_to_name and intent != cid:
-                    lobby_map[self.id_to_name[intent]] = {
-                        "loc": "👥 Teammate (Hover)", "action": None, "cid": intent, "tid": None
-                    }
+            team_list.append({
+                "champ": champ_name,
+                "display_champ": f"{champ_name} (Hover)" if is_hover else champ_name,
+                "player": player_name,
+                "action": act,
+                "cid": active_id,
+                "tid": tid,
+                "is_me": is_me
+            })
 
-        return lobby_map
+        bench_ids = []
+        for b in session.get("benchChampions", []):
+            cid = b.get("championId", 0)
+            if cid in self.id_to_name and cid not in bench_ids:
+                bench_ids.append(cid)
+        for cid in session.get("benchChampionIds", []):
+            if cid in self.id_to_name and cid not in bench_ids:
+                bench_ids.append(cid)
+
+        bench_list = [
+            {
+                "champ": self.id_to_name[cid],
+                "action": "bench",
+                "cid": cid,
+                "tid": None
+            }
+            for cid in bench_ids
+        ]
+
+        return team_list, bench_list
 
     def _poll_loop(self):
         last_sync = 0
-        last_lobby = None
+        last_state = None
 
         while True:
             try:
@@ -715,11 +793,13 @@ class AramTrackerApp:
                         self._load_missing_icons(get_bytes)
 
                 if self.id_to_name:
-                    lobby = self._fetch_lobby(get_json)
-                    if lobby != last_lobby:
-                        self.lobby = lobby or {}
-                        last_lobby = lobby
-                        self.root.after(0, self._refresh_lobby_tree)
+                    team_list, bench_list = self._fetch_lobby(get_json)
+                    cur_state = (team_list, bench_list)
+                    if cur_state != last_state:
+                        self.team_lobby = team_list or []
+                        self.bench_lobby = bench_list or []
+                        last_state = cur_state
+                        self.root.after(0, self._refresh_lobby_trees)
 
             except FileNotFoundError:
                 self.root.after(0, lambda: self.status_lbl.config(
@@ -763,66 +843,87 @@ class AramTrackerApp:
 
         self.notebook.tab(1, text=f"📋 All Champions ({total})")
         self._refresh_all_tree()
-        self._refresh_lobby_tree()
+        self._refresh_lobby_trees()
 
-    def _refresh_lobby_tree(self):
-        selected_champ = None
-        sel = self.lobby_tree.selection()
-        if sel:
-            selected_champ = self.lobby_tree.item(sel[0], "text").strip()
+    def _refresh_lobby_trees(self):
+        self.team_tree.delete(*self.team_tree.get_children())
+        self.bench_tree.delete(*self.bench_tree.get_children())
+        self.row_actions.clear()
 
-        self.lobby_tree.delete(*self.lobby_tree.get_children())
-        self.notebook.tab(0, text=f"🎯 Live ARAM Lobby ({len(self.lobby)})")
+        total_lobby = len(self.team_lobby) + len(self.bench_lobby)
+        self.notebook.tab(0, text=f"🎯 Live ARAM Lobby ({total_lobby})")
+        self.team_header_lbl.config(text=f"👥 YOUR TEAM ({len(self.team_lobby)}) — Double-Click Teammate to Trade")
+        self.bench_header_lbl.config(text=f"🪑 REROLL BENCH ({len(self.bench_lobby)}) — Double-Click to Grab")
 
-        if not self.lobby:
+        if not self.team_lobby and not self.bench_lobby:
             self.lobby_banner.config(
                 text="Not in Champ Select — Enter an ARAM lobby to scan automatically!",
                 fg="#94a3b8"
             )
             return
 
-        sorted_lobby = sorted(
-            self.lobby.keys(),
-            key=lambda n: (
-                self.champs.get(n, {}).get("done", False),
-                location_priority(self.lobby[n]["loc"]),
-                TIER_ORDER.get(self.champs.get(n, {}).get("tier", ""), 5),
-                n
-            )
-        )
-
-        need_count = 0
+        need_team = 0
         my_champ_summary = ""
 
-        for name in sorted_lobby:
+        sorted_team = sorted(self.team_lobby, key=lambda x: (not x["is_me"]))
+        for item in sorted_team:
+            name = item["champ"]
             info = self.champs.get(name, {"done": False, "tier": "", "role": ""})
-            loc = self.lobby[name]["loc"]
             is_done = info["done"]
             if not is_done:
-                need_count += 1
+                need_team += 1
 
             status_txt = "✅ S Earned" if is_done else "⭐ NEED S"
-            if loc.startswith("👤 You"):
+            if item["is_me"]:
                 tag = "done_you" if is_done else "need_you"
-                my_champ_summary = f"👤 {name} ({status_txt})  •  "
+                my_champ_summary = f"👤 Your Pick: {name} ({status_txt})   •   "
             else:
                 tag = "done" if is_done else "need"
 
             icon = self._get_tk_icon(name)
+            row_id = self.team_tree.insert(
+                "", "end",
+                text=f"  {item['display_champ']}",
+                image=icon,
+                values=(item["player"], status_txt, info["tier"]),
+                tags=(tag,)
+            )
+            self.row_actions[row_id] = item
 
-            item_id = self.lobby_tree.insert(
+        sorted_bench = sorted(
+            self.bench_lobby,
+            key=lambda x: (
+                self.champs.get(x["champ"], {}).get("done", False),
+                TIER_ORDER.get(self.champs.get(x["champ"], {}).get("tier", ""), 5),
+                x["champ"]
+            )
+        )
+
+        need_bench = 0
+        for item in sorted_bench:
+            name = item["champ"]
+            info = self.champs.get(name, {"done": False, "tier": "", "role": ""})
+            is_done = info["done"]
+            if not is_done:
+                need_bench += 1
+
+            status_txt = "✅ S Earned" if is_done else "⭐ NEED S"
+            tag = "done" if is_done else "need"
+            icon = self._get_tk_icon(name)
+
+            row_id = self.bench_tree.insert(
                 "", "end",
                 text=f"  {name}",
                 image=icon,
-                values=(loc, status_txt, info["tier"], info["role"]),
+                values=(status_txt, info["tier"], info["role"]),
                 tags=(tag,)
             )
-            if name == selected_champ:
-                self.lobby_tree.selection_set(item_id)
+            self.row_actions[row_id] = item
 
+        total_need = need_team + need_bench
         self.lobby_banner.config(
-            text=f"{my_champ_summary}⭐ {need_count} Need S  •  ✅ {len(self.lobby) - need_count} Mastered",
-            fg="#4ade80" if need_count > 0 else "#38bdf8"
+            text=f"{my_champ_summary}🪑 Bench Needs S: {need_bench}   •   👥 Team Needs S: {need_team}",
+            fg="#4ade80" if total_need > 0 else "#38bdf8"
         )
         self.notebook.select(0)
 
