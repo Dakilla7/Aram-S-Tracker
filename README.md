@@ -1,6 +1,6 @@
 # Aram-S-Tracker
 
-A lightweight, local desktop application for League of Legends designed to track your **All Random All Champions** challenge progress, monitor your capstone milestone points, and scan active ARAM Champ Select lobbies in real-time.
+A lightweight, local desktop application for League of Legends designed to track your **All Random All Champions**  and **Perfectionist** challenge progress, monitor your capstone milestone points, and scan active ARAM Champ Select lobbies in real-time.
 
 ---
 <img width="944" height="697" alt="readmescreenshot" src="https://github.com/user-attachments/assets/9bf15296-74fb-45d1-96a8-5c30b23e3666" />
