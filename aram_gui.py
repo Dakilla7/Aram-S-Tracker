@@ -24,7 +24,7 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.4.0"
 GITHUB_REPO = "Dakilla7/Aram-S-Tracker"
 # ===================================================================
 
@@ -95,7 +95,17 @@ STATIC_DATA = {
 TIER_ORDER = {"S+": 0, "S": 1, "A": 2, "B": 3, "C": 4, "": 5}
 ICON_SIZE = (28, 28)
 
-MILESTONES = [
+STANDARD_TIER_PTS = [
+    ("IRON", "Iron", 5),
+    ("BRONZE", "Bronze", 10),
+    ("SILVER", "Silver", 15),
+    ("GOLD", "Gold", 25),
+    ("PLATINUM", "Platinum", 40),
+    ("DIAMOND", "Diamond", 60),
+    ("MASTER", "Master", 100),
+]
+
+DEFAULT_MILESTONES = [
     (1, "Iron", 5),
     (5, "Bronze", 10),
     (15, "Silver", 15),
@@ -210,8 +220,8 @@ def parse_version(v_str):
 class AramTrackerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"⚔️ ARAM S-Grade Tracker v{APP_VERSION}")
-        self.root.geometry("950x670")
+        self.root.title(f"⚔️ LoL Challenge S-Grade Tracker v{APP_VERSION}")
+        self.root.geometry("960x680")
         self.root.configure(bg="#0f172a")
 
         cleanup_old_exe()
@@ -236,6 +246,14 @@ class AramTrackerApp:
         self.team_lobby = []
         self.bench_lobby = []
         self.row_actions = {}
+
+        # Active challenge mode: "ARAM" (All Random All Champions S-) or "SR" (Perfectionist S+)
+        self.active_mode = tk.StringVar(value="ARAM")
+        self.detected_queue_label = ""
+        self.milestones_by_mode = {
+            "ARAM": list(DEFAULT_MILESTONES),
+            "SR": list(DEFAULT_MILESTONES),
+        }
 
         self.update_download_url = None
         self.latest_version = None
@@ -280,14 +298,18 @@ class AramTrackerApp:
 
         title_col = tk.Frame(header, bg="#1e293b")
         title_col.pack(side="left", fill="y")
-        tk.Label(title_col, text=f"⚔️ ARAM S-Grade Tracker v{APP_VERSION}",
-                 fg="#f8fafc", bg="#1e293b", font=("Segoe UI", 13, "bold")).pack(anchor="w")
+        self.title_lbl = tk.Label(
+            title_col, text=f"❄️ ARAM: All Random All Champions (S-)  •  v{APP_VERSION}",
+            fg="#f8fafc", bg="#1e293b", font=("Segoe UI", 12, "bold")
+        )
+        self.title_lbl.pack(anchor="w")
+
         self.status_lbl = tk.Label(title_col, text="⏳ Waiting for League client...",
                                    fg="#fbbf24", bg="#1e293b", font=("Segoe UI", 9))
         self.status_lbl.pack(anchor="w", pady=(2, 0))
 
         ctrl_row = tk.Frame(title_col, bg="#1e293b")
-        ctrl_row.pack(anchor="w", pady=(3, 0))
+        ctrl_row.pack(anchor="w", pady=(4, 0))
 
         pin_cb = tk.Checkbutton(
             ctrl_row, text="📌 Pin on Top", variable=self.always_on_top,
@@ -302,7 +324,19 @@ class AramTrackerApp:
             bg="#334155", fg="#e2e8f0", activebackground="#475569", activeforeground="#ffffff",
             relief="flat", padx=6, pady=1, font=("Segoe UI", 8), cursor="hand2"
         )
-        folder_btn.pack(side="left", padx=(0, 6))
+        folder_btn.pack(side="left", padx=(0, 8))
+
+        # Mode Switcher (Also switches automatically when entering ARAM or Summoner's Rift lobbies)
+        tk.Label(ctrl_row, text="Mode:", fg="#94a3b8", bg="#1e293b",
+                 font=("Segoe UI", 8, "bold")).pack(side="left", padx=(2, 2))
+        for m_val, m_label in (("ARAM", "❄️ ARAM (S-)"), ("SR", "🏔️ Rift: Perfectionist (S+)")):
+            rb = tk.Radiobutton(
+                ctrl_row, text=m_label, variable=self.active_mode, value=m_val,
+                command=self._on_mode_changed, bg="#1e293b", fg="#cbd5e1",
+                selectcolor="#0f172a", activebackground="#1e293b",
+                activeforeground="#ffffff", font=("Segoe UI", 8, "bold")
+            )
+            rb.pack(side="left", padx=2)
 
         self.update_btn = tk.Button(
             ctrl_row, text="🚀 Update Available!", command=self._perform_self_update,
@@ -333,14 +367,14 @@ class AramTrackerApp:
 
         # ================= TAB 1: SPLIT TEAM (LEFT) & BENCH (RIGHT) =================
         self.tab_lobby = tk.Frame(self.notebook, bg="#0f172a")
-        self.notebook.add(self.tab_lobby, text="🎯 Live ARAM Lobby (0)")
+        self.notebook.add(self.tab_lobby, text="🎯 Live Lobby (0)")
 
         top_bar = tk.Frame(self.tab_lobby, bg="#1e293b", padx=10, pady=6)
         top_bar.pack(fill="x", padx=6, pady=6)
 
         self.lobby_banner = tk.Label(
             top_bar,
-            text="Not in Champ Select — Enter an ARAM lobby to scan automatically!",
+            text="Not in Champ Select — Enter an ARAM or Summoner's Rift lobby to scan automatically!",
             fg="#94a3b8", bg="#1e293b", font=("Segoe UI", 9, "bold")
         )
         self.lobby_banner.pack(side="left")
@@ -389,8 +423,8 @@ class AramTrackerApp:
         self.bench_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.bench_tree))
         self.bench_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.team_tree))
 
-        split_pane.add(left_frame, minsize=380, width=480)
-        split_pane.add(right_frame, minsize=340, width=440)
+        split_pane.add(left_frame, minsize=400, width=500)
+        split_pane.add(right_frame, minsize=340, width=430)
 
         # ================= TAB 2: ALL CHAMPIONS LIST =================
         self.tab_all = tk.Frame(self.notebook, bg="#0f172a")
@@ -407,7 +441,7 @@ class AramTrackerApp:
         search_entry.pack(side="left", padx=(0, 10), ipady=3)
         self.search_var.trace_add("write", lambda *_: self._refresh_all_tree())
 
-        for mode in ("All", "⭐ Need S", "✅ S Earned"):
+        for mode in ("All", "⭐ Need Grade", "✅ Completed"):
             rb = tk.Radiobutton(
                 filter_bar, text=mode, variable=self.filter_var, value=mode,
                 command=self._refresh_all_tree, bg="#0f172a", fg="#cbd5e1",
@@ -427,6 +461,19 @@ class AramTrackerApp:
 
         self.all_tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+    def _is_champ_done(self, info):
+        if self.active_mode.get() == "SR":
+            return info.get("done_sr", False)
+        return info.get("done_aram", False)
+
+    def _status_labels(self):
+        if self.active_mode.get() == "SR":
+            return "✅ S+ Earned", "⭐ NEED S+"
+        return "✅ S Earned", "⭐ NEED S"
+
+    def _on_mode_changed(self):
+        self._update_dashboard()
 
     def _clear_other_selection(self, other_tree):
         if other_tree.selection():
@@ -501,14 +548,14 @@ class AramTrackerApp:
         threading.Thread(target=download_and_swap, daemon=True).start()
 
     def _configure_team_columns(self, tree):
-        tree.heading("#0", text="Champion", anchor="w")
-        tree.column("#0", width=165, anchor="w", stretch=True)
+        tree.heading("#0", text="Champion & Trade Status", anchor="w")
+        tree.column("#0", width=200, anchor="w", stretch=True)
 
         tree.heading("player", text="Player (Riot ID)", anchor="w")
-        tree.heading("status", text="S-Grade", anchor="center")
+        tree.heading("status", text="Challenge Status", anchor="center")
         tree.heading("tier", text="Tier", anchor="center")
 
-        tree.column("player", width=165, anchor="w", stretch=True)
+        tree.column("player", width=155, anchor="w", stretch=True)
         tree.column("status", width=105, anchor="center", stretch=False)
         tree.column("tier", width=55, anchor="center", stretch=False)
 
@@ -521,7 +568,7 @@ class AramTrackerApp:
         tree.heading("#0", text="Bench Champion", anchor="w")
         tree.column("#0", width=170, anchor="w", stretch=True)
 
-        tree.heading("status", text="S-Grade", anchor="center")
+        tree.heading("status", text="Challenge Status", anchor="center")
         tree.heading("tier", text="Tier", anchor="center")
         tree.heading("role", text="Role", anchor="center")
 
@@ -536,7 +583,7 @@ class AramTrackerApp:
         tree.heading("#0", text="Champion", anchor="w")
         tree.column("#0", width=240, anchor="w", stretch=True)
 
-        tree.heading("status", text="S-Grade Status")
+        tree.heading("status", text="Challenge Status")
         tree.heading("tier", text="ARAM Tier")
         tree.heading("role", text="Primary Role")
 
@@ -650,14 +697,48 @@ class AramTrackerApp:
             return f"👤 {name_str} (You)" if name_str else "👤 You"
         return f"👥 {name_str}" if name_str else f"👥 Teammate {slot_idx}"
 
+    def _extract_standard_milestones(self, c_obj):
+        """Extract Iron->Master thresholds cleanly while ignoring Grandmaster/Challenger/seasonal."""
+        thresholds = c_obj.get("thresholds")
+        if not isinstance(thresholds, dict):
+            return None
+        parsed = []
+        for api_tier, label, pts in STANDARD_TIER_PTS:
+            t_info = thresholds.get(api_tier)
+            val = 0
+            if isinstance(t_info, (int, float)):
+                val = int(t_info)
+            elif isinstance(t_info, dict):
+                val = int(t_info.get("value", 0))
+            if val > 0:
+                parsed.append((val, label, pts))
+        return parsed if parsed else None
+
     def _fetch_all_data(self, get_json):
         summary = [c for c in get_json("/lol-game-data/assets/v1/champion-summary.json") if c["id"] > 0]
         challenges = get_json("/lol-challenges/v1/challenges/local-player")
 
-        done_ids = set()
-        for c in challenges.values():
-            if "all random all champions" in c.get("name", "").lower():
-                done_ids.update(c.get("completedIds", []))
+        aram_done_ids = set()
+        sr_done_ids = set()
+
+        for cid_key, c in challenges.items():
+            cname = c.get("name", "").strip().lower()
+            cid_int = c.get("id") or (int(cid_key) if str(cid_key).isdigit() else 0)
+
+            # 1. All Random All Champions (ID 101301) - S- or higher in ARAM
+            if cid_int == 101301 or "all random all champions" in cname:
+                aram_done_ids.update(c.get("completedIds", []))
+                if cid_int == 101301 or cname == "all random all champions":
+                    ms = self._extract_standard_milestones(c)
+                    if ms:
+                        self.milestones_by_mode["ARAM"] = ms
+
+            # 2. Perfectionist (ID 210001) - S+ on different champions in Summoner's Rift
+            if cid_int == 210001 or cname == "perfectionist":
+                sr_done_ids.update(c.get("completedIds", []))
+                ms = self._extract_standard_milestones(c)
+                if ms:
+                    self.milestones_by_mode["SR"] = ms
 
         champs = {}
         id_to_name = {}
@@ -665,7 +746,8 @@ class AramTrackerApp:
         for c in summary:
             cid = c["id"]
             name = c["name"]
-            completed = cid in done_ids
+            done_aram = cid in aram_done_ids
+            done_sr = cid in sr_done_ids
             tier, static_role = STATIC_DATA.get(name, ("", ""))
             role = static_role or ((c.get("roles") or [""])[0]).capitalize()
             icon_path = c.get("squarePortraitPath") or f"/lol-game-data/assets/v1/champion-icons/{cid}.png"
@@ -674,13 +756,15 @@ class AramTrackerApp:
             if name not in champs:
                 champs[name] = {
                     "id": cid,
-                    "done": completed,
+                    "done_aram": done_aram,
+                    "done_sr": done_sr,
                     "tier": tier,
                     "role": role,
                     "icon_path": icon_path
                 }
             else:
-                champs[name]["done"] = champs[name]["done"] or completed
+                champs[name]["done_aram"] = champs[name]["done_aram"] or done_aram
+                champs[name]["done_sr"] = champs[name]["done_sr"] or done_sr
 
         return champs, id_to_name
 
@@ -697,13 +781,71 @@ class AramTrackerApp:
             self.root.after(0, self._refresh_all_tree)
             self.root.after(0, self._refresh_lobby_trees)
 
+    def _detect_queue_mode(self, get_json, cs_session=None):
+        """
+        Auto-detect whether the player is in an ARAM / ARAM Mayhem lobby
+        or a Summoner's Rift (Normal, Draft, Ranked Solo/Duo, Flex) lobby.
+        Returns ("ARAM" | "SR" | None, queue_description_str).
+        """
+        # 1. Check active Gameflow session (works in Lobby, Queue, and Champ Select)
+        try:
+            gf = get_json("/lol-gameflow/v1/session")
+            gdata = gf.get("gameData", {})
+            q = gdata.get("queue", {})
+            map_id = q.get("mapId") or gf.get("map", {}).get("id")
+            gmode = (q.get("gameMode") or gf.get("map", {}).get("gameMode") or "").upper()
+            qdesc = (q.get("description") or q.get("shortName") or gmode).strip()
+
+            if map_id == 12 or "ARAM" in gmode or "ARAM" in qdesc.upper() or "MAYHEM" in qdesc.upper():
+                return "ARAM", (qdesc or "ARAM")
+            if map_id == 11 or gmode in ("CLASSIC", "SWIFTPLAY"):
+                return "SR", (qdesc or "Summoner's Rift")
+        except Exception:
+            pass
+
+        # 2. Check Pre-Game Lobby (/lol-lobby/v2/lobby)
+        try:
+            lob = get_json("/lol-lobby/v2/lobby")
+            gcfg = lob.get("gameConfig", {})
+            map_id = gcfg.get("mapId")
+            gmode = (gcfg.get("gameMode") or "").upper()
+            if map_id == 12 or "ARAM" in gmode or "KIWI" in gmode:
+                return "ARAM", "ARAM Lobby"
+            if map_id == 11 or gmode in ("CLASSIC", "SWIFTPLAY"):
+                return "SR", "Summoner's Rift Lobby"
+        except Exception:
+            pass
+
+        # 3. Fallback to Champ Select benchEnabled flag
+        if cs_session is not None:
+            if cs_session.get("benchEnabled", False):
+                return "ARAM", "ARAM"
+            return "SR", "Summoner's Rift"
+
+        return None, ""
+
     def _fetch_lobby(self, get_json):
+        session = None
         try:
             session = get_json("/lol-champ-select/v1/session")
         except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return None, None
-            raise
+            if e.response is not None and e.response.status_code != 404:
+                raise
+        except Exception:
+            pass
+
+        # Detect queue mode even before Champ Select starts (e.g. while sitting in Lobby/Queue)
+        detected_mode, q_label = self._detect_queue_mode(get_json, session)
+        if detected_mode and detected_mode != self.active_mode.get():
+            self.active_mode.set(detected_mode)
+            self.detected_queue_label = q_label
+            self.root.after(0, self._update_dashboard)
+        elif q_label != self.detected_queue_label:
+            self.detected_queue_label = q_label
+            self.root.after(0, self._update_dashboard)
+
+        if not session:
+            return None, None
 
         local_cell = session.get("localPlayerCellId", -1)
         swaps_list = session.get("championSwaps") or session.get("trades", [])
@@ -723,28 +865,31 @@ class AramTrackerApp:
 
             champ_name = self.id_to_name[active_id]
             is_hover = (cid == 0 and intent > 0)
+            display_champ = f"{champ_name} (Hover)" if is_hover else champ_name
 
             trade_info = cell_trades.get(cell_id, {})
             tid = trade_info.get("id")
             tstate = trade_info.get("state", "")
 
+            # Put trade emojis right after the champion name instead of the player name
             if is_me:
                 act = "self"
             else:
                 if tstate == "RECEIVED":
-                    player_name = f"{player_name} (📩 Accept!)"
+                    display_champ = f"{display_champ}  📩 Accept!"
                     act = "trade_acc"
                 elif tstate == "SENT":
-                    player_name = f"{player_name} (⏳ Sent)"
+                    display_champ = f"{display_champ}  ⏳ Sent"
                     act = None
                 elif tstate == "AVAILABLE" and tid is not None:
+                    display_champ = f"{display_champ}  🔄"
                     act = "trade_req"
                 else:
                     act = None
 
             team_list.append({
                 "champ": champ_name,
-                "display_champ": f"{champ_name} (Hover)" if is_hover else champ_name,
+                "display_champ": display_champ,
                 "player": player_name,
                 "action": act,
                 "cid": active_id,
@@ -794,7 +939,7 @@ class AramTrackerApp:
 
                 if self.id_to_name:
                     team_list, bench_list = self._fetch_lobby(get_json)
-                    cur_state = (team_list, bench_list)
+                    cur_state = (team_list, bench_list, self.active_mode.get())
                     if cur_state != last_state:
                         self.team_lobby = team_list or []
                         self.bench_lobby = bench_list or []
@@ -811,18 +956,28 @@ class AramTrackerApp:
             time.sleep(0.8)
 
     def _update_dashboard(self):
+        mode = self.active_mode.get()
         total = len(self.champs)
-        done = sum(1 for v in self.champs.values() if v["done"])
+        done = sum(1 for v in self.champs.values() if self._is_champ_done(v))
         rem = total - done
         pct = (done / total * 100) if total else 0
 
-        self.status_lbl.config(text="🟢 Connected to League Client", fg="#4ade80")
-        self.progress_lbl.config(text=f"✅ {done} Earned  |  ⭐ {rem} Left ({pct:.1f}%)")
+        if mode == "SR":
+            self.title_lbl.config(text=f"🏔️ Summoner's Rift: Perfectionist (S+ Only)  •  v{APP_VERSION}")
+            grade_short = "S+"
+        else:
+            self.title_lbl.config(text=f"❄️ ARAM: All Random All Champions (S-)  •  v{APP_VERSION}")
+            grade_short = "S-"
 
+        q_suffix = f"  •  Queue: {self.detected_queue_label}" if self.detected_queue_label else ""
+        self.status_lbl.config(text=f"🟢 Connected to League Client{q_suffix}", fg="#4ade80")
+        self.progress_lbl.config(text=f"✅ {done} ({grade_short})  |  ⭐ {rem} Left ({pct:.1f}%)")
+
+        milestones = self.milestones_by_mode.get(mode, DEFAULT_MILESTONES)
         cur_tier, cur_pts = "Unranked", 0
         next_target, next_tier, next_pts = None, None, None
 
-        for req_count, tier_name, pts in MILESTONES:
+        for req_count, tier_name, pts in milestones:
             if done >= req_count:
                 cur_tier, cur_pts = tier_name, pts
             elif next_target is None:
@@ -838,7 +993,7 @@ class AramTrackerApp:
             )
         else:
             self.next_milestone_lbl.config(
-                text=f"👑 Max Milestone (Master 150) Reached! ({rem} left for 100%)"
+                text=f"👑 Max Milestone Reached! ({rem} left for 100%)"
             )
 
         self.notebook.tab(1, text=f"📋 All Champions ({total})")
@@ -850,14 +1005,18 @@ class AramTrackerApp:
         self.bench_tree.delete(*self.bench_tree.get_children())
         self.row_actions.clear()
 
+        done_lbl, need_lbl = self._status_labels()
+        mode = self.active_mode.get()
+        mode_tag = "🏔️ SR Perfectionist (S+)" if mode == "SR" else "❄️ ARAM (S-)"
+
         total_lobby = len(self.team_lobby) + len(self.bench_lobby)
-        self.notebook.tab(0, text=f"🎯 Live ARAM Lobby ({total_lobby})")
+        self.notebook.tab(0, text=f"🎯 Live Lobby ({total_lobby})")
         self.team_header_lbl.config(text=f"👥 YOUR TEAM ({len(self.team_lobby)}) — Double-Click Teammate to Trade")
         self.bench_header_lbl.config(text=f"🪑 REROLL BENCH ({len(self.bench_lobby)}) — Double-Click to Grab")
 
         if not self.team_lobby and not self.bench_lobby:
             self.lobby_banner.config(
-                text="Not in Champ Select — Enter an ARAM lobby to scan automatically!",
+                text=f"[{mode_tag}] Not in Champ Select — Enter a lobby to scan automatically!",
                 fg="#94a3b8"
             )
             return
@@ -868,12 +1027,12 @@ class AramTrackerApp:
         sorted_team = sorted(self.team_lobby, key=lambda x: (not x["is_me"]))
         for item in sorted_team:
             name = item["champ"]
-            info = self.champs.get(name, {"done": False, "tier": "", "role": ""})
-            is_done = info["done"]
+            info = self.champs.get(name, {"done_aram": False, "done_sr": False, "tier": "", "role": ""})
+            is_done = self._is_champ_done(info)
             if not is_done:
                 need_team += 1
 
-            status_txt = "✅ S Earned" if is_done else "⭐ NEED S"
+            status_txt = done_lbl if is_done else need_lbl
             if item["is_me"]:
                 tag = "done_you" if is_done else "need_you"
                 my_champ_summary = f"👤 Your Pick: {name} ({status_txt})   •   "
@@ -893,7 +1052,7 @@ class AramTrackerApp:
         sorted_bench = sorted(
             self.bench_lobby,
             key=lambda x: (
-                self.champs.get(x["champ"], {}).get("done", False),
+                self._is_champ_done(self.champs.get(x["champ"], {})),
                 TIER_ORDER.get(self.champs.get(x["champ"], {}).get("tier", ""), 5),
                 x["champ"]
             )
@@ -902,12 +1061,12 @@ class AramTrackerApp:
         need_bench = 0
         for item in sorted_bench:
             name = item["champ"]
-            info = self.champs.get(name, {"done": False, "tier": "", "role": ""})
-            is_done = info["done"]
+            info = self.champs.get(name, {"done_aram": False, "done_sr": False, "tier": "", "role": ""})
+            is_done = self._is_champ_done(info)
             if not is_done:
                 need_bench += 1
 
-            status_txt = "✅ S Earned" if is_done else "⭐ NEED S"
+            status_txt = done_lbl if is_done else need_lbl
             tag = "done" if is_done else "need"
             icon = self._get_tk_icon(name)
 
@@ -922,7 +1081,7 @@ class AramTrackerApp:
 
         total_need = need_team + need_bench
         self.lobby_banner.config(
-            text=f"{my_champ_summary}🪑 Bench Needs S: {need_bench}   •   👥 Team Needs S: {need_team}",
+            text=f"[{mode_tag}]  {my_champ_summary}🪑 Bench Needs: {need_bench}   •   👥 Team Needs: {need_team}",
             fg="#4ade80" if total_need > 0 else "#38bdf8"
         )
         self.notebook.select(0)
@@ -930,20 +1089,21 @@ class AramTrackerApp:
     def _refresh_all_tree(self):
         self.all_tree.delete(*self.all_tree.get_children())
         query = self.search_var.get().strip().lower()
-        mode = self.filter_var.get()
+        fmode = self.filter_var.get()
+        done_lbl, need_lbl = self._status_labels()
 
         for name in sorted(self.champs.keys()):
             info = self.champs[name]
-            is_done = info["done"]
+            is_done = self._is_champ_done(info)
 
-            if mode == "⭐ Need S" and is_done:
+            if fmode == "⭐ Need Grade" and is_done:
                 continue
-            if mode == "✅ S Earned" and not is_done:
+            if fmode == "✅ Completed" and not is_done:
                 continue
             if query and query not in name.lower() and query not in info["role"].lower():
                 continue
 
-            status_txt = "✅ S Earned" if is_done else "⭐ NEED S"
+            status_txt = done_lbl if is_done else need_lbl
             tag = "done" if is_done else "need"
             icon = self._get_tk_icon(name)
 
