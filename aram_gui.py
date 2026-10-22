@@ -24,7 +24,7 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.4.3"
+APP_VERSION = "1.4.4"
 GITHUB_REPO = "Dakilla7/Aram-S-Tracker"
 # ===================================================================
 
@@ -951,7 +951,7 @@ class AramTrackerApp:
         self.team_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.team_tree))
         self.team_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.bench_tree))
 
-        # --- RIGHT PANEL: REROLL BENCH (ARAM) OR LANE POOL (SR) ---
+        # --- RIGHT PANEL: CARDS & REROLL BENCH (ARAM) OR LANE POOL (SR) ---
         self.right_frame = tk.Frame(self.split_pane, bg=t["border"], bd=1)
         self.bench_header_lbl = tk.Label(
             self.right_frame, text="REROLL BENCH (0)  •  Double-Click to Grab",
@@ -1222,6 +1222,8 @@ class AramTrackerApp:
         self.team_tree.tag_configure("need", background=t["tag_need_bg"], foreground=t["tag_need_fg"])
         self.team_tree.tag_configure("done", background=t["tag_done_bg"], foreground=t["tag_done_fg"])
 
+        self.bench_tree.tag_configure("need_you", background=t["tag_need_you_bg"], foreground=t["tag_need_you_fg"])
+        self.bench_tree.tag_configure("done_you", background=t["tag_done_you_bg"], foreground=t["tag_done_you_fg"])
         self.bench_tree.tag_configure("need", background=t["tag_need_bg"], foreground=t["tag_need_fg"])
         self.bench_tree.tag_configure("done", background=t["tag_done_bg"], foreground=t["tag_done_fg"])
         self.bench_tree.tag_configure("unavailable", background=t["tag_unavail_bg"], foreground=t["tag_unavail_fg"])
@@ -1445,6 +1447,51 @@ class AramTrackerApp:
         patch_req("/lol-champ-select/v1/session/my-selection", {"championId": cid})
         return f"Selected {champ_name}!"
 
+    def _pick_aram_card(self, get_json, post_req, patch_req, cid, champ_name):
+        """Selects and locks in an initial ARAM / ARAM Mayhem Champion Card."""
+        session = get_json("/lol-champ-select/v1/session")
+        local_cell = session.get("localPlayerCellId", -1)
+
+        target_action = None
+        for action_group in session.get("actions", []):
+            for act in action_group:
+                if act.get("actorCellId") == local_cell and act.get("type") != "ban":
+                    target_action = act
+                    if not act.get("completed"):
+                        break
+            if target_action is not None and not target_action.get("completed"):
+                break
+
+        if target_action is not None:
+            action_id = target_action.get("id")
+            body = dict(target_action)
+            body.update({
+                "id": action_id,
+                "actorCellId": local_cell,
+                "championId": cid,
+                "type": target_action.get("type") or "pick",
+                "completed": True,
+                "isAllyAction": True,
+                "isInProgress": True,
+            })
+            try:
+                patch_req(f"/lol-champ-select/v1/session/actions/{action_id}", body)
+                try:
+                    post_req(f"/lol-champ-select/v1/session/actions/{action_id}/complete")
+                except Exception:
+                    pass
+                return f"Picked Champion Card: {champ_name}!"
+            except Exception:
+                pass
+
+        # Fallback if the card just moved to the bench or uses my-selection
+        try:
+            post_req(f"/lol-champ-select/v1/session/bench/swap/{cid}")
+            return f"Swapped to {champ_name}!"
+        except Exception:
+            patch_req("/lol-champ-select/v1/session/my-selection", {"championId": cid})
+            return f"Selected Champion Card: {champ_name}!"
+
     def _trigger_tree_action(self, tree):
         sel = tree.selection()
         if not sel:
@@ -1468,7 +1515,9 @@ class AramTrackerApp:
         def run_action():
             try:
                 get_json, _, post_req, patch_req = lcu_client()
-                if action == "bench" and cid:
+                if action == "card" and cid:
+                    msg = self._pick_aram_card(get_json, post_req, patch_req, cid, champ_name)
+                elif action == "bench" and cid:
                     post_req(f"/lol-champ-select/v1/session/bench/swap/{cid}")
                     msg = f"Grabbed {champ_name} from the bench!"
                 elif action == "sr_hover" and cid:
@@ -1642,7 +1691,14 @@ class AramTrackerApp:
             gmode = (q.get("gameMode") or gf.get("map", {}).get("gameMode") or "").upper()
             qdesc = (q.get("description") or q.get("shortName") or gmode).strip()
 
-            if map_id == 12 or "ARAM" in gmode or "ARAM" in qdesc.upper() or "MAYHEM" in qdesc.upper():
+            if (
+                map_id == 12
+                or "ARAM" in gmode
+                or "KIWI" in gmode
+                or "MAYHEM" in gmode
+                or "ARAM" in qdesc.upper()
+                or "MAYHEM" in qdesc.upper()
+            ):
                 detected_mode, q_label = "ARAM", (qdesc or "ARAM")
             elif map_id == 11 or gmode in ("CLASSIC", "SWIFTPLAY"):
                 detected_mode, q_label = "SR", (qdesc or "Summoner's Rift")
@@ -1656,7 +1712,7 @@ class AramTrackerApp:
             map_id = gcfg.get("mapId")
             gmode = (gcfg.get("gameMode") or "").upper()
             if not detected_mode:
-                if map_id == 12 or "ARAM" in gmode or "KIWI" in gmode:
+                if map_id == 12 or "ARAM" in gmode or "KIWI" in gmode or "MAYHEM" in gmode:
                     detected_mode, q_label = "ARAM", "ARAM Lobby"
                 elif map_id == 11 or gmode in ("CLASSIC", "SWIFTPLAY"):
                     detected_mode, q_label = "SR", "Summoner's Rift Lobby"
@@ -1676,6 +1732,28 @@ class AramTrackerApp:
                 detected_mode, q_label = "SR", "Summoner's Rift"
 
         return detected_mode, q_label, lane
+
+    def _fetch_aram_cards(self, get_json, session):
+        """Fetches the 2-3 initial ARAM / ARAM Mayhem Champion Cards for the local player."""
+        raw_cards = []
+        try:
+            res = get_json("/lol-lobby-team-builder/champ-select/v1/subset-champion-list")
+            if isinstance(res, list):
+                raw_cards.extend(res)
+        except Exception:
+            pass
+
+        if not raw_cards and isinstance(session, dict):
+            sub = session.get("subsetChampionList")
+            if isinstance(sub, list):
+                raw_cards.extend(sub)
+
+        card_ids = []
+        for item in raw_cards:
+            cid = item.get("championId") or item.get("id") if isinstance(item, dict) else item
+            if isinstance(cid, int) and cid in self.id_to_name and cid not in card_ids:
+                card_ids.append(cid)
+        return card_ids
 
     def _fetch_lobby(self, get_json):
         session = None
@@ -1724,6 +1802,9 @@ class AramTrackerApp:
                         banned_ids.add(cid)
 
         team_list = []
+        team_locked_cids = set()
+        my_locked_cid = 0
+
         for idx, m in enumerate(session.get("myTeam", []), start=1):
             cell_id = m.get("cellId")
             is_me = (cell_id == local_cell)
@@ -1731,6 +1812,11 @@ class AramTrackerApp:
 
             cid = m.get("championId", 0)
             intent = m.get("championPickIntent", 0)
+            if cid in self.id_to_name:
+                team_locked_cids.add(cid)
+                if is_me:
+                    my_locked_cid = cid
+
             active_id = cid if cid in self.id_to_name else (intent if intent in self.id_to_name else 0)
             if not active_id:
                 continue
@@ -1777,12 +1863,41 @@ class AramTrackerApp:
             if cid in self.id_to_name and cid not in bench_ids:
                 bench_ids.append(cid)
 
+        # Check if the local player has an uncompleted pick action
+        my_pick_completed = True
+        for action_group in session.get("actions", []):
+            for act in action_group:
+                if act.get("actorCellId") == local_cell and act.get("type") != "ban":
+                    if not act.get("completed", False):
+                        my_pick_completed = False
+
+        # Fetch the 2-3 initial ARAM / ARAM Mayhem Champion Cards
+        card_ids = []
+        if self.active_mode.get() == "ARAM" or session.get("benchEnabled", False):
+            raw_card_ids = self._fetch_aram_cards(get_json, session)
+            # Show cards while local player hasn't locked in, or before unused cards drop to the bench
+            show_cards = (my_locked_cid == 0) or (not my_pick_completed) or (len(bench_ids) == 0)
+            if show_cards:
+                for cid in raw_card_ids:
+                    if cid not in bench_ids and cid not in team_locked_cids:
+                        card_ids.append(cid)
+
         bench_list = [
+            {
+                "champ": self.id_to_name[cid],
+                "action": "card",
+                "cid": cid,
+                "tid": None,
+                "is_card": True
+            }
+            for cid in card_ids
+        ] + [
             {
                 "champ": self.id_to_name[cid],
                 "action": "bench",
                 "cid": cid,
-                "tid": None
+                "tid": None,
+                "is_card": False
             }
             for cid in bench_ids
         ]
@@ -1937,14 +2052,14 @@ class AramTrackerApp:
 
         self.team_header_lbl.config(text=f"YOUR TEAM ({len(self.team_lobby)})  •  Double-Click to Trade")
 
-        # 2. Populate Right Tree: Either ARAM Bench OR Summoner's Rift Lane Pool
+        # 2. Populate Right Tree: Either ARAM Cards & Bench OR Summoner's Rift Lane Pool
         if mode == "ARAM":
-            self.bench_tree.heading("#0", text="BENCH CHAMPION", anchor="w")
             self.bench_tree.heading("role", text="PRIMARY ROLE", anchor="center")
 
             sorted_bench = sorted(
                 self.bench_lobby,
                 key=lambda x: (
+                    not x.get("is_card", False),
                     self._is_champ_done(self.champs.get(x["champ"], {})),
                     TIER_ORDER.get(self.champs.get(x["champ"], {}).get("tier", ""), 5),
                     x["champ"]
@@ -1952,20 +2067,35 @@ class AramTrackerApp:
             )
 
             need_bench = 0
+            need_cards = 0
+            cards_count = 0
+            bench_count = 0
+
             for item in sorted_bench:
                 name = item["champ"]
+                is_card = item.get("is_card", False)
                 info = self.champs.get(name, {"done_aram": False, "done_sr": False, "tier": "", "role": ""})
                 is_done = self._is_champ_done(info)
-                if not is_done:
-                    need_bench += 1
+
+                if is_card:
+                    cards_count += 1
+                    if not is_done:
+                        need_cards += 1
+                    disp_text = f"  {name}   [PICK CARD]"
+                    tag = "done_you" if is_done else "need_you"
+                else:
+                    bench_count += 1
+                    if not is_done:
+                        need_bench += 1
+                    disp_text = f"  {name}"
+                    tag = "done" if is_done else "need"
 
                 status_txt = done_lbl if is_done else need_lbl
-                tag = "done" if is_done else "need"
                 icon = self._get_tk_icon(name)
 
                 row_id = self.bench_tree.insert(
                     "", "end",
-                    text=f"  {name}",
+                    text=disp_text,
                     image=icon,
                     values=(status_txt, info["tier"], info["role"]),
                     tags=(tag,)
@@ -1974,7 +2104,22 @@ class AramTrackerApp:
 
             total_lobby = len(self.team_lobby) + len(self.bench_lobby)
             self.notebook.tab(0, text=f"Live Lobby ({total_lobby})")
-            self.bench_header_lbl.config(text=f"REROLL BENCH ({len(self.bench_lobby)})  •  Double-Click to Grab")
+
+            if cards_count > 0 and bench_count == 0:
+                self.bench_tree.heading("#0", text="CHAMPION CARDS (DOUBLE-CLICK TO PICK)", anchor="w")
+                self.bench_header_lbl.config(
+                    text=f"CHAMPION CARDS ({cards_count})  •  Double-Click to Pick Card"
+                )
+            elif cards_count > 0 and bench_count > 0:
+                self.bench_tree.heading("#0", text="CHAMPION CARDS & BENCH", anchor="w")
+                self.bench_header_lbl.config(
+                    text=f"CARDS ({cards_count}) & BENCH ({bench_count})  •  Double-Click to Pick / Grab"
+                )
+            else:
+                self.bench_tree.heading("#0", text="BENCH CHAMPION", anchor="w")
+                self.bench_header_lbl.config(
+                    text=f"REROLL BENCH ({bench_count})  •  Double-Click to Grab"
+                )
 
             if not self.team_lobby and not self.bench_lobby:
                 self.lobby_banner.config(
@@ -1982,9 +2127,10 @@ class AramTrackerApp:
                     fg=t["text_secondary"]
                 )
             else:
-                total_need = need_team + need_bench
+                total_need = need_team + need_bench + need_cards
+                cards_part = f"Card Needs: {need_cards}   •   " if cards_count > 0 else ""
                 self.lobby_banner.config(
-                    text=f"[{mode_tag}]  {my_champ_summary}Bench Needs: {need_bench}   •   Team Needs: {need_team}",
+                    text=f"[{mode_tag}]  {my_champ_summary}{cards_part}Bench Needs: {need_bench}   •   Team Needs: {need_team}",
                     fg=t["accent_secondary"] if total_need > 0 else t["accent_primary"]
                 )
         else:
