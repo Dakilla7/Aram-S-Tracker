@@ -5,7 +5,8 @@ A lightweight, local desktop application for League of Legends designed to track
 ---
 
 <p align="center">
-  <img width="944" height="697" alt="readmescreenshot" src="https://github.com/user-attachments/assets/9bf15296-74fb-45d1-96a8-5c30b23e3666" />
+    <img width="1079" height="1656" alt="1-4-3 aram" src="https://github.com/user-attachments/assets/641f15f8-875a-4b60-949a-024d7eb581dc" />
+
 </p>
 
 ---
@@ -55,6 +56,9 @@ pyinstaller --noconfirm --clean --onefile --noconsole --exclude-module numpy --e
 
 ---
 
+<p align="center">
+  <img width="944" height="697" alt="readmescreenshot" src="https://github.com/user-attachments/assets/9bf15296-74fb-45d1-96a8-5c30b23e3666" />
+</p>
 <p align="center">
   <img width="715" height="695" alt="png for readme" src="https://github.com/user-attachments/assets/81fb5a39-7ae6-480a-829c-733d12855c12" />
 </p>
