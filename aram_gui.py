@@ -16,7 +16,7 @@ import requests
 import urllib3
 
 try:
-    from PIL import Image, ImageTk
+    from PIL import Image, ImageTk, ImageDraw
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -24,12 +24,133 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 GITHUB_REPO = "Dakilla7/Aram-S-Tracker"
 # ===================================================================
 
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "AramSTracker")
 CONFIG_FILE = os.path.join(APPDATA_DIR, "config.json")
+
+# High-DPI Awareness on Windows
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+# ================= COLOR PALETTES / THEMES =================
+THEMES = {
+    "Hextech": {
+        "name": "Hextech Obsidian",
+        "bg_root": "#070b12",
+        "bg_card": "#0f1726",
+        "bg_header": "#0b121e",
+        "bg_sub": "#141f33",
+        "bg_hover": "#1d2d4a",
+        "border": "#1e2e4a",
+        "text_primary": "#f1f5f9",
+        "text_secondary": "#8a9bb5",
+        "accent_primary": "#c8aa6e",     # Hextech Gold
+        "accent_secondary": "#0ac8b9",   # Magic Cyan
+        "action_btn_bg": "#2563eb",
+        "action_btn_hover": "#3b82f6",
+        "progress_fill_aram": "#0ac8b9",
+        "progress_fill_sr": "#c8aa6e",
+        "tag_need_you_bg": "#1a2d48",
+        "tag_need_you_fg": "#f1f5f9",
+        "tag_done_you_bg": "#121f33",
+        "tag_done_you_fg": "#8a9bb5",
+        "tag_need_bg": "#0f1726",
+        "tag_need_fg": "#f1f5f9",
+        "tag_done_bg": "#090d16",
+        "tag_done_fg": "#64748b",
+        "tag_unavail_bg": "#060910",
+        "tag_unavail_fg": "#475569",
+    },
+    "Onyx": {
+        "name": "Stealth Onyx",
+        "bg_root": "#0a0b0e",
+        "bg_card": "#13141a",
+        "bg_header": "#0e0f14",
+        "bg_sub": "#1a1c24",
+        "bg_hover": "#252833",
+        "border": "#222530",
+        "text_primary": "#f8fafc",
+        "text_secondary": "#94a3b8",
+        "accent_primary": "#10b981",     # Neon Emerald
+        "accent_secondary": "#34d399",   # Mint
+        "action_btn_bg": "#059669",
+        "action_btn_hover": "#10b981",
+        "progress_fill_aram": "#34d399",
+        "progress_fill_sr": "#10b981",
+        "tag_need_you_bg": "#142c22",
+        "tag_need_you_fg": "#ecfdf5",
+        "tag_done_you_bg": "#101d17",
+        "tag_done_you_fg": "#6ee7b7",
+        "tag_need_bg": "#13141a",
+        "tag_need_fg": "#f8fafc",
+        "tag_done_bg": "#0e0f14",
+        "tag_done_fg": "#64748b",
+        "tag_unavail_bg": "#090a0d",
+        "tag_unavail_fg": "#475569",
+    },
+    "Eclipse": {
+        "name": "Midnight Eclipse",
+        "bg_root": "#0f1015",
+        "bg_card": "#181920",
+        "bg_header": "#13141a",
+        "bg_sub": "#21222b",
+        "bg_hover": "#2c2e3a",
+        "border": "#282a36",
+        "text_primary": "#f1f2f6",
+        "text_secondary": "#9fa3af",
+        "accent_primary": "#818cf8",     # Indigo
+        "accent_secondary": "#f59e0b",   # Warm Amber
+        "action_btn_bg": "#6366f1",
+        "action_btn_hover": "#4f46e5",
+        "progress_fill_aram": "#818cf8",
+        "progress_fill_sr": "#f59e0b",
+        "tag_need_you_bg": "#23253b",
+        "tag_need_you_fg": "#e0e7ff",
+        "tag_done_you_bg": "#191a27",
+        "tag_done_you_fg": "#a5b4fc",
+        "tag_need_bg": "#181920",
+        "tag_need_fg": "#f1f2f6",
+        "tag_done_bg": "#111217",
+        "tag_done_fg": "#6b7280",
+        "tag_unavail_bg": "#0c0d11",
+        "tag_unavail_fg": "#4b5563",
+    },
+    "Arcane": {
+        "name": "Arcane Void",
+        "bg_root": "#090611",
+        "bg_card": "#130d22",
+        "bg_header": "#0d0918",
+        "bg_sub": "#1b1330",
+        "bg_hover": "#261a42",
+        "border": "#24193d",
+        "text_primary": "#f5f3ff",
+        "text_secondary": "#a79fc7",
+        "accent_primary": "#c084fc",     # Electric Violet
+        "accent_secondary": "#00f5d4",   # Chemtech Cyan
+        "action_btn_bg": "#9333ea",
+        "action_btn_hover": "#a855f7",
+        "progress_fill_aram": "#00f5d4",
+        "progress_fill_sr": "#c084fc",
+        "tag_need_you_bg": "#271642",
+        "tag_need_you_fg": "#faf5ff",
+        "tag_done_you_bg": "#1c1130",
+        "tag_done_you_fg": "#d8b4fe",
+        "tag_need_bg": "#130d22",
+        "tag_need_fg": "#f5f3ff",
+        "tag_done_bg": "#0c0816",
+        "tag_done_fg": "#716b8a",
+        "tag_unavail_bg": "#07040d",
+        "tag_unavail_fg": "#4c4661",
+    },
+}
 
 # {Champion Name: (ARAM Tier, Primary Role, (Summoner's Rift Lanes...))}
 STATIC_DATA = {
@@ -235,7 +356,7 @@ LANE_SHORT_BADGE = {
 }
 
 TIER_ORDER = {"S+": 0, "S": 1, "A": 2, "B": 3, "C": 4, "": 5}
-ICON_SIZE = (28, 28)
+ICON_SIZE = (30, 30)
 
 STANDARD_TIER_PTS = [
     ("IRON", "Iron", 5),
@@ -257,24 +378,46 @@ DEFAULT_MILESTONES = [
     (150, "Master", 100),
 ]
 
+# Milestone Tier Colors: (text, background, border)
+TIER_COLORS = {
+    "IRON": ("#a19d94", "#24201c", "#3d372e"),
+    "BRONZE": ("#cd7f32", "#2a1c12", "#4a2d1a"),
+    "SILVER": ("#cbd5e1", "#1e2633", "#334155"),
+    "GOLD": ("#fbbf24", "#31230c", "#634714"),
+    "PLATINUM": ("#2dd4bf", "#0d2b27", "#134e48"),
+    "DIAMOND": ("#60a5fa", "#172540", "#1e3a8a"),
+    "MASTER": ("#c084fc", "#2e1247", "#581c87"),
+    "UNRANKED": ("#94a3b8", "#182337", "#223354"),
+}
 
-def load_saved_lol_dir():
+
+def load_config():
     try:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f).get("lol_dir", "")
+                return json.load(f)
     except Exception:
         pass
-    return ""
+    return {}
+
+
+def save_config_value(key, val):
+    try:
+        os.makedirs(APPDATA_DIR, exist_ok=True)
+        data = load_config()
+        data[key] = val
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_saved_lol_dir():
+    return load_config().get("lol_dir", "")
 
 
 def save_lol_dir(lol_dir):
-    try:
-        os.makedirs(APPDATA_DIR, exist_ok=True)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump({"lol_dir": lol_dir}, f, indent=2)
-    except Exception:
-        pass
+    save_config_value("lol_dir", lol_dir)
 
 
 def get_riot_metadata_lockfile():
@@ -364,12 +507,150 @@ def parse_version(v_str):
     return tuple(int(x) for x in re.findall(r"\d+", str(v_str)))
 
 
+# ================= MODERN CUSTOM WIDGETS =================
+
+class HextechProgressBar(tk.Canvas):
+    """Sleek custom canvas progress bar with rounded ends and crisp track."""
+    def __init__(self, parent, width=320, height=10, bg="#101726",
+                 track_color="#182337", fill_color="#c8aa6e", border_color="#223354", **kwargs):
+        super().__init__(parent, width=width, height=height, bg=bg, highlightthickness=0, bd=0, **kwargs)
+        self.track_color = track_color
+        self.fill_color = fill_color
+        self.border_color = border_color
+        self.progress = 0.0
+        self.bind("<Configure>", lambda e: self.draw())
+
+    def set_progress(self, current, total):
+        self.progress = (current / total) if total > 0 else 0.0
+        self.progress = max(0.0, min(1.0, self.progress))
+        self.draw()
+
+    def apply_theme(self, bg, track_color, border_color, fill_color):
+        self.configure(bg=bg)
+        self.track_color = track_color
+        self.border_color = border_color
+        self.fill_color = fill_color
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        w = self.winfo_width()
+        h = self.winfo_height()
+        if w < 10 or h < 4:
+            return
+
+        r = h // 2
+        # Track background
+        self.create_rectangle(r, 0, w - r, h, fill=self.track_color, outline=self.border_color, width=1)
+        self.create_oval(0, 0, 2 * r, h, fill=self.track_color, outline=self.border_color, width=1)
+        self.create_oval(w - 2 * r, 0, w, h, fill=self.track_color, outline=self.border_color, width=1)
+        self.create_rectangle(r, 1, w - r, h - 1, fill=self.track_color, outline="")
+
+        # Fill progress
+        fill_w = int(w * self.progress)
+        if fill_w > 2:
+            fill_w = min(w, fill_w)
+            if fill_w >= 2 * r:
+                self.create_oval(0, 1, 2 * r, h - 1, fill=self.fill_color, outline="")
+                self.create_rectangle(r, 1, fill_w - (r if fill_w < w else 0), h - 1, fill=self.fill_color, outline="")
+                if fill_w >= w - r:
+                    self.create_oval(w - 2 * r, 1, w, h - 1, fill=self.fill_color, outline="")
+            else:
+                self.create_rectangle(1, 1, fill_w, h - 1, fill=self.fill_color, outline="")
+
+
+class SegmentedControl(tk.Frame):
+    """Modern flat segmented control for selecting game modes, roles, or filters."""
+    def __init__(self, parent, options, variable, command=None,
+                 bg="#0c1322", active_bg="#1a2d4b", active_fg="#c8aa6e",
+                 normal_bg="#141d30", normal_fg="#8a9bb5", hover_bg="#1e2e4a",
+                 border_color="#223354", font=("Segoe UI", 8, "bold"),
+                 padx=10, pady=4, **kwargs):
+        super().__init__(parent, bg=bg, **kwargs)
+        self.options = options
+        self.variable = variable
+        self.command = command
+        self.active_bg = active_bg
+        self.active_fg = active_fg
+        self.normal_bg = normal_bg
+        self.normal_fg = normal_fg
+        self.hover_bg = hover_bg
+        self.border_color = border_color
+        self.btn_font = font
+        self.btn_padx = padx
+        self.btn_pady = pady
+        self.labels = {}
+
+        self.inner = tk.Frame(self, bg=border_color, bd=1)
+        self.inner.pack(fill="both", expand=True)
+
+        for val, text in options:
+            lbl = tk.Label(
+                self.inner, text=text, font=self.btn_font,
+                padx=self.btn_padx, pady=self.btn_pady, cursor="hand2"
+            )
+            lbl.pack(side="left", padx=1, pady=1)
+            lbl.bind("<Button-1>", lambda e, v=val: self._on_click(v))
+            lbl.bind("<Enter>", lambda e, l=lbl, v=val: self._on_enter(l, v))
+            lbl.bind("<Leave>", lambda e, l=lbl, v=val: self._on_leave(l, v))
+            self.labels[val] = lbl
+
+        self.variable.trace_add("write", lambda *_: self.refresh())
+        self.refresh()
+
+    def _on_click(self, val):
+        if self.variable.get() != val:
+            self.variable.set(val)
+            if self.command:
+                self.command()
+
+    def _on_enter(self, lbl, val):
+        if self.variable.get() != val:
+            lbl.config(bg=self.hover_bg, fg="#e2e8f0")
+
+    def _on_leave(self, lbl, val):
+        if self.variable.get() != val:
+            lbl.config(bg=self.normal_bg, fg=self.normal_fg)
+
+    def set_label_text(self, val, new_text):
+        if val in self.labels:
+            self.labels[val].config(text=new_text)
+
+    def apply_theme(self, bg, active_bg, active_fg, normal_bg, normal_fg, hover_bg, border_color):
+        self.configure(bg=bg)
+        self.inner.configure(bg=border_color)
+        self.active_bg = active_bg
+        self.active_fg = active_fg
+        self.normal_bg = normal_bg
+        self.normal_fg = normal_fg
+        self.hover_bg = hover_bg
+        self.border_color = border_color
+        self.refresh()
+
+    def refresh(self):
+        cur = self.variable.get()
+        for val, lbl in self.labels.items():
+            if val == cur:
+                lbl.config(bg=self.active_bg, fg=self.active_fg)
+            else:
+                lbl.config(bg=self.normal_bg, fg=self.normal_fg)
+
+
+# ================= MAIN APPLICATION CLASS =================
+
 class AramTrackerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"⚔️ LoL Challenge S-Grade Tracker v{APP_VERSION}")
-        self.root.geometry("1040x700")
-        self.root.configure(bg="#0f172a")
+        self.root.title(f"LoL Challenge S-Grade Tracker v{APP_VERSION}")
+        self.root.geometry("1080x720")
+        self.root.minsize(980, 640)
+
+        self.current_theme = load_config().get("theme", "Onyx")
+        if self.current_theme not in THEMES:
+            self.current_theme = "Onyx"
+
+        t = THEMES[self.current_theme]
+        self.root.configure(bg=t["bg_root"])
 
         cleanup_old_exe()
 
@@ -398,7 +679,7 @@ class AramTrackerApp:
         # Active challenge mode: "ARAM" (All Random All Champions S-) or "SR" (Perfectionist S+)
         self.active_mode = tk.StringVar(value="ARAM")
         self.detected_queue_label = ""
-        self.assigned_lane = ""  # "Top", "Jungle", "Mid", "Bot", "Support", or ""
+        self.assigned_lane = ""
 
         # SR right-panel filter controls
         self.sr_lane_var = tk.StringVar(value="Auto")
@@ -418,216 +699,328 @@ class AramTrackerApp:
 
         self._setup_styles()
         self._build_ui()
+        self._apply_theme(self.current_theme, save_to_config=False)
 
         threading.Thread(target=self._poll_loop, daemon=True).start()
         threading.Thread(target=self._check_for_updates, daemon=True).start()
 
     def _setup_styles(self):
-        style = ttk.Style()
-        style.theme_use("clam")
+        self.style = ttk.Style()
+        self.style.theme_use("clam")
 
-        style.configure("TNotebook", background="#0f172a", borderwidth=0)
-        style.configure("TNotebook.Tab", background="#1e293b", foreground="#94a3b8",
-                        padding=[14, 8], font=("Segoe UI", 10, "bold"))
-        style.map("TNotebook.Tab",
-                  background=[("selected", "#2563eb")],
-                  foreground=[("selected", "#ffffff")])
+        t = THEMES[self.current_theme]
 
-        style.configure("Treeview",
-                        background="#1e293b",
-                        foreground="#f8fafc",
-                        fieldbackground="#1e293b",
-                        rowheight=36,
-                        borderwidth=0,
-                        font=("Segoe UI", 10))
-        style.configure("Treeview.Heading",
-                        background="#0f172a",
-                        foreground="#cbd5e1",
-                        font=("Segoe UI", 10, "bold"),
-                        relief="flat")
-        style.map("Treeview", background=[("selected", "#3b82f6")])
+        # Polished modern dark tabs
+        self.style.configure("TNotebook", background=t["bg_root"], borderwidth=0)
+        self.style.configure("TNotebook.Tab", background=t["bg_card"], foreground=t["text_secondary"],
+                             padding=[18, 8], font=("Segoe UI", 9, "bold"), borderwidth=0)
+        self.style.map("TNotebook.Tab",
+                       background=[("selected", t["bg_hover"]), ("active", t["bg_sub"])],
+                       foreground=[("selected", t["accent_secondary"]), ("active", t["text_primary"])])
+
+        # Modern high-density treeview with 38px rows
+        self.style.configure("Treeview",
+                             background=t["bg_card"],
+                             foreground=t["text_primary"],
+                             fieldbackground=t["bg_card"],
+                             rowheight=38,
+                             borderwidth=0,
+                             font=("Segoe UI", 9))
+        self.style.configure("Treeview.Heading",
+                             background=t["bg_header"],
+                             foreground=t["accent_primary"],
+                             font=("Segoe UI", 9, "bold"),
+                             padding=[6, 6],
+                             relief="flat")
+        self.style.map("Treeview.Heading",
+                       background=[("active", t["bg_sub"])],
+                       foreground=[("active", t["text_primary"])])
+        self.style.map("Treeview",
+                       background=[("selected", t["bg_hover"])],
+                       foreground=[("selected", "#ffffff")])
 
     def _build_ui(self):
-        header = tk.Frame(self.root, bg="#1e293b", padx=14, pady=10)
-        header.pack(fill="x", padx=10, pady=(10, 6))
+        t = THEMES[self.current_theme]
 
-        title_col = tk.Frame(header, bg="#1e293b")
-        title_col.pack(side="left", fill="y")
+        # ================= 1. TOP HEADER / APP BAR =================
+        self.header_container = tk.Frame(self.root, bg=t["border"], bd=1)
+        self.header_container.pack(fill="x", padx=10, pady=(10, 4))
+
+        self.header_nav = tk.Frame(self.header_container, bg=t["bg_header"], padx=14, pady=8)
+        self.header_nav.pack(fill="x")
+
+        # Left Column: Branding, Version, and Live Connection Status
+        self.brand_col = tk.Frame(self.header_nav, bg=t["bg_header"])
+        self.brand_col.pack(side="left", fill="y")
+
+        self.brand_row = tk.Frame(self.brand_col, bg=t["bg_header"])
+        self.brand_row.pack(anchor="w")
+
         self.title_lbl = tk.Label(
-            title_col, text=f"❄️ ARAM: All Random All Champions (S-)  •  v{APP_VERSION}",
-            fg="#f8fafc", bg="#1e293b", font=("Segoe UI", 12, "bold")
+            self.brand_row, text="CHALLENGE S-TRACKER",
+            fg=t["accent_primary"], bg=t["bg_header"], font=("Segoe UI", 12, "bold")
         )
-        self.title_lbl.pack(anchor="w")
+        self.title_lbl.pack(side="left")
 
-        self.status_lbl = tk.Label(title_col, text="⏳ Waiting for League client...",
-                                   fg="#fbbf24", bg="#1e293b", font=("Segoe UI", 9))
-        self.status_lbl.pack(anchor="w", pady=(2, 0))
-
-        ctrl_row = tk.Frame(title_col, bg="#1e293b")
-        ctrl_row.pack(anchor="w", pady=(4, 0))
-
-        pin_cb = tk.Checkbutton(
-            ctrl_row, text="📌 Pin on Top", variable=self.always_on_top,
-            command=lambda: self.root.attributes("-topmost", self.always_on_top.get()),
-            bg="#1e293b", fg="#cbd5e1", selectcolor="#0f172a",
-            activebackground="#1e293b", activeforeground="#ffffff", font=("Segoe UI", 9)
+        self.version_pill = tk.Label(
+            self.brand_row, text=f"v{APP_VERSION}",
+            fg=t["text_secondary"], bg=t["bg_sub"], font=("Segoe UI", 8, "bold"), padx=6, pady=1
         )
-        pin_cb.pack(side="left", padx=(0, 8))
+        self.version_pill.pack(side="left", padx=(8, 0))
 
-        folder_btn = tk.Button(
-            ctrl_row, text="📁 Set LoL Folder", command=self._choose_lol_folder,
-            bg="#334155", fg="#e2e8f0", activebackground="#475569", activeforeground="#ffffff",
-            relief="flat", padx=6, pady=1, font=("Segoe UI", 8), cursor="hand2"
+        self.status_row = tk.Frame(self.brand_col, bg=t["bg_header"])
+        self.status_row.pack(anchor="w", pady=(3, 0))
+
+        self.status_dot = tk.Label(self.status_row, text="○", fg="#fbbf24", bg=t["bg_header"], font=("Segoe UI", 9, "bold"))
+        self.status_dot.pack(side="left", padx=(0, 4))
+
+        self.status_lbl = tk.Label(
+            self.status_row, text="Waiting for League client...",
+            fg="#fbbf24", bg=t["bg_header"], font=("Segoe UI", 8)
         )
-        folder_btn.pack(side="left", padx=(0, 8))
+        self.status_lbl.pack(side="left")
 
-        tk.Label(ctrl_row, text="Mode:", fg="#94a3b8", bg="#1e293b",
-                 font=("Segoe UI", 8, "bold")).pack(side="left", padx=(2, 2))
-        for m_val, m_label in (("ARAM", "❄️ ARAM (S-)"), ("SR", "🏔️ Rift: Perfectionist (S+)")):
-            rb = tk.Radiobutton(
-                ctrl_row, text=m_label, variable=self.active_mode, value=m_val,
-                command=self._on_mode_changed, bg="#1e293b", fg="#cbd5e1",
-                selectcolor="#0f172a", activebackground="#1e293b",
-                activeforeground="#ffffff", font=("Segoe UI", 8, "bold")
-            )
-            rb.pack(side="left", padx=2)
+        # Center: Segmented Game Mode Switcher
+        self.mode_frame = tk.Frame(self.header_nav, bg=t["bg_header"])
+        self.mode_frame.pack(side="left", expand=True)
+
+        self.mode_selector = SegmentedControl(
+            self.mode_frame,
+            options=[("ARAM", "ARAM • S-"), ("SR", "RIFT • S+ PERFECTIONIST")],
+            variable=self.active_mode,
+            command=self._on_mode_changed,
+            bg=t["bg_header"],
+            active_bg=t["bg_hover"],
+            active_fg=t["accent_primary"],
+            normal_bg=t["bg_sub"],
+            normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"],
+            border_color=t["border"],
+            font=("Segoe UI", 9, "bold"),
+            padx=14, pady=5
+        )
+        self.mode_selector.pack()
+
+        # Right: Quick Window Controls (Pin, Theme, Set Folder, Update)
+        self.controls_col = tk.Frame(self.header_nav, bg=t["bg_header"])
+        self.controls_col.pack(side="right", fill="y")
+
+        self.pin_btn = tk.Button(
+            self.controls_col, text="PIN", command=self._toggle_pin,
+            bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"],
+            relief="flat", bd=0, padx=8, pady=3, font=("Segoe UI", 8, "bold"), cursor="hand2"
+        )
+        self.pin_btn.pack(side="right", padx=(4, 0))
+
+        self.theme_btn = tk.Button(
+            self.controls_col, text="Theme ▾", command=self._open_theme_menu,
+            bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"],
+            relief="flat", bd=0, padx=8, pady=3, font=("Segoe UI", 8, "bold"), cursor="hand2"
+        )
+        self.theme_btn.pack(side="right", padx=(4, 0))
+
+        self.folder_btn = tk.Button(
+            self.controls_col, text="LoL Folder", command=self._choose_lol_folder,
+            bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"],
+            relief="flat", bd=0, padx=8, pady=3, font=("Segoe UI", 8, "bold"), cursor="hand2"
+        )
+        self.folder_btn.pack(side="right", padx=(4, 0))
 
         self.update_btn = tk.Button(
-            ctrl_row, text="🚀 Update Available!", command=self._perform_self_update,
-            bg="#16a34a", fg="#ffffff", activebackground="#15803d", activeforeground="#ffffff",
-            relief="flat", padx=8, pady=1, font=("Segoe UI", 8, "bold"), cursor="hand2"
+            self.controls_col, text="Update Available", command=self._perform_self_update,
+            bg="#15803d", fg="#ffffff", activebackground="#16a34a", activeforeground="#ffffff",
+            relief="flat", bd=0, padx=8, pady=3, font=("Segoe UI", 8, "bold"), cursor="hand2"
         )
 
-        stats_col = tk.Frame(header, bg="#1e293b")
-        stats_col.pack(side="right", fill="y")
+        # ================= 2. HERO MILESTONE & PROGRESS CARD =================
+        self.milestone_card = tk.Frame(self.root, bg=t["border"], bd=1)
+        self.milestone_card.pack(fill="x", padx=10, pady=(2, 6))
 
-        self.progress_lbl = tk.Label(stats_col, text="0 / 0 (0.0%)",
-                                     fg="#38bdf8", bg="#1e293b", font=("Segoe UI", 12, "bold"))
-        self.progress_lbl.pack(anchor="e")
+        self.m_inner = tk.Frame(self.milestone_card, bg=t["bg_card"], padx=14, pady=8)
+        self.m_inner.pack(fill="x")
 
-        self.milestone_lbl = tk.Label(
-            stats_col, text="🏆 Milestone: Loading...",
-            fg="#fbbf24", bg="#1e293b", font=("Segoe UI", 9, "bold")
+        # Left Column: Milestone Rank Tier Badge
+        self.tier_col = tk.Frame(self.m_inner, bg=t["bg_card"])
+        self.tier_col.pack(side="left", padx=(0, 16))
+
+        self.milestone_tier_frame = tk.Frame(self.tier_col, bg=t["border"], bd=1)
+        self.milestone_tier_frame.pack(side="left")
+
+        self.milestone_tier_lbl = tk.Label(
+            self.milestone_tier_frame, text="UNRANKED",
+            fg=t["text_secondary"], bg=t["bg_sub"], font=("Segoe UI", 9, "bold"), padx=10, pady=3
         )
-        self.milestone_lbl.pack(anchor="e", pady=(4, 0))
+        self.milestone_tier_lbl.pack(side="left")
+
+        self.milestone_pts_lbl = tk.Label(
+            self.tier_col, text="0 PTS",
+            fg=t["accent_primary"], bg=t["bg_card"], font=("Segoe UI", 9, "bold"), padx=8
+        )
+        self.milestone_pts_lbl.pack(side="left")
+
+        # Center Column: Progress Counts & Hextech Canvas Progress Bar
+        self.center_col = tk.Frame(self.m_inner, bg=t["bg_card"])
+        self.center_col.pack(side="left", fill="x", expand=True)
+
+        self.progress_text_row = tk.Frame(self.center_col, bg=t["bg_card"])
+        self.progress_text_row.pack(fill="x")
+
+        self.progress_count_lbl = tk.Label(
+            self.progress_text_row, text="0 / 0 Champions Completed",
+            fg=t["text_primary"], bg=t["bg_card"], font=("Segoe UI", 9, "bold")
+        )
+        self.progress_count_lbl.pack(side="left")
+
+        self.progress_pct_lbl = tk.Label(
+            self.progress_text_row, text="0.0%",
+            fg=t["accent_secondary"], bg=t["bg_card"], font=("Segoe UI", 9, "bold")
+        )
+        self.progress_pct_lbl.pack(side="right")
+
+        self.hextech_progress = HextechProgressBar(
+            self.center_col, width=380, height=10,
+            bg=t["bg_card"], track_color=t["bg_sub"], fill_color=t["progress_fill_sr"], border_color=t["border"]
+        )
+        self.hextech_progress.pack(fill="x", pady=(4, 0))
+
+        # Right Column: Target Milestone & Remaining Summary
+        self.target_col = tk.Frame(self.m_inner, bg=t["bg_card"])
+        self.target_col.pack(side="right", padx=(16, 0))
+
+        self.needed_summary_lbl = tk.Label(
+            self.target_col, text="0 Need Grade",
+            fg="#f59e0b", bg=t["bg_card"], font=("Segoe UI", 9, "bold")
+        )
+        self.needed_summary_lbl.pack(anchor="e")
 
         self.next_milestone_lbl = tk.Label(
-            stats_col, text="", fg="#cbd5e1", bg="#1e293b", font=("Segoe UI", 9)
+            self.target_col, text="Loading milestone...",
+            fg=t["text_secondary"], bg=t["bg_card"], font=("Segoe UI", 8)
         )
-        self.next_milestone_lbl.pack(anchor="e")
+        self.next_milestone_lbl.pack(anchor="e", pady=(2, 0))
 
+        # ================= 3. NOTEBOOK (TABS) =================
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=10, pady=4)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=(2, 6))
 
-        # ================= TAB 1: SPLIT TEAM (LEFT) & BENCH / SR LANE POOL (RIGHT) =================
-        self.tab_lobby = tk.Frame(self.notebook, bg="#0f172a")
-        self.notebook.add(self.tab_lobby, text="🎯 Live Lobby (0)")
+        # ================= TAB 1: SPLIT LIVE LOBBY =================
+        self.tab_lobby = tk.Frame(self.notebook, bg=t["bg_root"])
+        self.notebook.add(self.tab_lobby, text="Live Lobby (0)")
 
-        top_bar = tk.Frame(self.tab_lobby, bg="#1e293b", padx=10, pady=6)
-        top_bar.pack(fill="x", padx=6, pady=6)
+        self.top_bar_container = tk.Frame(self.tab_lobby, bg=t["border"], bd=1)
+        self.top_bar_container.pack(fill="x", padx=6, pady=6)
+
+        self.top_bar = tk.Frame(self.top_bar_container, bg=t["bg_card"], padx=12, pady=6)
+        self.top_bar.pack(fill="x")
 
         self.lobby_banner = tk.Label(
-            top_bar,
-            text="Not in Champ Select — Enter an ARAM or Summoner's Rift lobby to scan automatically!",
-            fg="#94a3b8", bg="#1e293b", font=("Segoe UI", 9, "bold")
+            self.top_bar,
+            text="Waiting for Champ Select  •  Enter a game lobby to scan live champions automatically",
+            fg=t["text_secondary"], bg=t["bg_card"], font=("Segoe UI", 9)
         )
         self.lobby_banner.pack(side="left")
 
         self.action_btn = tk.Button(
-            top_bar, text="⚡ Swap / Trade / Hover (Double-Click)",
+            self.top_bar, text="QUICK ACTION (DOUBLE-CLICK)",
             command=self._on_button_action,
-            bg="#2563eb", fg="#ffffff", activebackground="#1d4ed8", activeforeground="#ffffff",
-            relief="flat", padx=10, pady=3, font=("Segoe UI", 9, "bold"), cursor="hand2"
+            bg=t["action_btn_bg"], fg="#ffffff", activebackground=t["action_btn_hover"], activeforeground="#ffffff",
+            relief="flat", bd=0, padx=14, pady=4, font=("Segoe UI", 9, "bold"), cursor="hand2"
         )
         self.action_btn.pack(side="right")
+        self.action_btn.bind("<Enter>", lambda e: self.action_btn.config(bg=THEMES[self.current_theme]["action_btn_hover"]))
+        self.action_btn.bind("<Leave>", lambda e: self.action_btn.config(bg=THEMES[self.current_theme]["action_btn_bg"]))
 
-        split_pane = tk.PanedWindow(
-            self.tab_lobby, orient="horizontal", bg="#0f172a",
+        self.split_pane = tk.PanedWindow(
+            self.tab_lobby, orient="horizontal", bg=t["bg_root"],
             sashwidth=6, sashrelief="flat", bd=0
         )
-        split_pane.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        self.split_pane.pack(fill="both", expand=True, padx=6, pady=(0, 4))
 
         # --- LEFT PANEL: YOUR TEAM ---
-        left_frame = tk.Frame(split_pane, bg="#1e293b", bd=1, relief="solid")
+        self.left_frame = tk.Frame(self.split_pane, bg=t["border"], bd=1)
         self.team_header_lbl = tk.Label(
-            left_frame, text="👥 YOUR TEAM (Double-Click Teammate to Trade)",
-            bg="#0f172a", fg="#38bdf8", font=("Segoe UI", 9, "bold"), pady=6, anchor="w", padx=8
+            self.left_frame, text="YOUR TEAM (0)  •  Double-Click to Trade",
+            bg=t["bg_header"], fg=t["accent_primary"], font=("Segoe UI", 9, "bold"), pady=7, anchor="w", padx=10
         )
         self.team_header_lbl.pack(fill="x")
 
         team_cols = ("player", "status", "tier")
-        self.team_tree = ttk.Treeview(left_frame, columns=team_cols, show="tree headings")
+        self.team_tree = ttk.Treeview(self.left_frame, columns=team_cols, show="tree headings")
         self._configure_team_columns(self.team_tree)
         self.team_tree.pack(fill="both", expand=True)
         self.team_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.team_tree))
         self.team_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.bench_tree))
 
-        # --- RIGHT PANEL: REROLL BENCH (ARAM) OR LANE POOL (SUMMONER'S RIFT) ---
-        self.right_frame = tk.Frame(split_pane, bg="#1e293b", bd=1, relief="solid")
+        # --- RIGHT PANEL: REROLL BENCH (ARAM) OR LANE POOL (SR) ---
+        self.right_frame = tk.Frame(self.split_pane, bg=t["border"], bd=1)
         self.bench_header_lbl = tk.Label(
-            self.right_frame, text="🪑 REROLL BENCH (Double-Click Champion to Grab)",
-            bg="#0f172a", fg="#4ade80", font=("Segoe UI", 9, "bold"), pady=6, anchor="w", padx=8
+            self.right_frame, text="REROLL BENCH (0)  •  Double-Click to Grab",
+            bg=t["bg_header"], fg=t["accent_secondary"], font=("Segoe UI", 9, "bold"), pady=7, anchor="w", padx=10
         )
         self.bench_header_lbl.pack(fill="x")
 
-        # Summoner's Rift Lane Filter Bar (Shown automatically when in SR mode)
-        self.sr_filter_frame = tk.Frame(self.right_frame, bg="#0f172a", padx=6, pady=4)
+        # Summoner's Rift Lane Filter Bar
+        self.sr_filter_frame = tk.Frame(self.right_frame, bg=t["bg_card"], padx=8, pady=5)
 
-        lane_row = tk.Frame(self.sr_filter_frame, bg="#0f172a")
-        lane_row.pack(fill="x")
+        self.lane_row = tk.Frame(self.sr_filter_frame, bg=t["bg_card"])
+        self.lane_row.pack(fill="x")
 
-        self.auto_lane_rb = tk.Radiobutton(
-            lane_row, text="🎯 Auto", variable=self.sr_lane_var, value="Auto",
-            command=self._refresh_lobby_trees, bg="#0f172a", fg="#38bdf8",
-            selectcolor="#1e293b", activebackground="#0f172a", activeforeground="#ffffff",
-            font=("Segoe UI", 8, "bold")
+        self.lane_selector = SegmentedControl(
+            self.lane_row,
+            options=[
+                ("Auto", "AUTO"),
+                ("Top", "TOP"),
+                ("Jungle", "JG"),
+                ("Mid", "MID"),
+                ("Bot", "BOT"),
+                ("Support", "SUP"),
+                ("All", "ALL"),
+            ],
+            variable=self.sr_lane_var,
+            command=self._refresh_lobby_trees,
+            bg=t["bg_card"],
+            active_bg=t["accent_secondary"],
+            active_fg=t["bg_root"],
+            normal_bg=t["bg_sub"],
+            normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"],
+            border_color=t["border"],
+            font=("Segoe UI", 8, "bold"),
+            padx=8, pady=3
         )
-        self.auto_lane_rb.pack(side="left", padx=(0, 2))
+        self.lane_selector.pack(side="left")
 
-        for lane_val, lane_txt in (
-            ("Top", "🛡️ Top"),
-            ("Jungle", "🌲 Jg"),
-            ("Mid", "🔮 Mid"),
-            ("Bot", "🏹 Bot"),
-            ("Support", "✨ Sup"),
-            ("All", "All"),
-        ):
-            rb = tk.Radiobutton(
-                lane_row, text=lane_txt, variable=self.sr_lane_var, value=lane_val,
-                command=self._refresh_lobby_trees, bg="#0f172a", fg="#cbd5e1",
-                selectcolor="#1e293b", activebackground="#0f172a", activeforeground="#ffffff",
-                font=("Segoe UI", 8, "bold")
-            )
-            rb.pack(side="left", padx=1)
+        self.search_row = tk.Frame(self.sr_filter_frame, bg=t["bg_card"], pady=4)
+        self.search_row.pack(fill="x")
 
-        search_row = tk.Frame(self.sr_filter_frame, bg="#0f172a", pady=3)
-        search_row.pack(fill="x")
+        self.search_box = tk.Frame(self.search_row, bg=t["border"], bd=1)
+        self.search_box.pack(side="left", padx=(0, 8))
 
-        tk.Label(search_row, text="🔍", fg="#cbd5e1", bg="#0f172a",
-                 font=("Segoe UI", 8)).pack(side="left", padx=(0, 3))
-        sr_search_entry = tk.Entry(
-            search_row, textvariable=self.sr_search_var,
-            bg="#1e293b", fg="#ffffff", insertbackground="#ffffff",
-            relief="flat", font=("Segoe UI", 9), width=16
+        self.search_box_lbl = tk.Label(self.search_box, text="SEARCH:", fg=t["text_secondary"], bg=t["bg_sub"], font=("Segoe UI", 8, "bold"), padx=6)
+        self.search_box_lbl.pack(side="left")
+        self.sr_search_entry = tk.Entry(
+            self.search_box, textvariable=self.sr_search_var,
+            bg=t["bg_sub"], fg=t["text_primary"], insertbackground=t["text_primary"],
+            relief="flat", bd=0, font=("Segoe UI", 9), width=16
         )
-        sr_search_entry.pack(side="left", padx=(0, 8), ipady=2)
+        self.sr_search_entry.pack(side="left", padx=4, ipady=3)
         self.sr_search_var.trace_add("write", lambda *_: self._refresh_lobby_trees())
 
-        need_cb = tk.Checkbutton(
-            search_row, text="⭐ Only Need S+", variable=self.sr_need_only_var,
-            command=self._refresh_lobby_trees,
-            bg="#0f172a", fg="#4ade80", selectcolor="#1e293b",
-            activebackground="#0f172a", activeforeground="#ffffff", font=("Segoe UI", 8, "bold")
+        self.need_only_btn = tk.Button(
+            self.search_row, text="NEED S+ ONLY",
+            command=self._toggle_need_only,
+            bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"],
+            relief="flat", bd=0, padx=8, pady=3, font=("Segoe UI", 8, "bold"), cursor="hand2"
         )
-        need_cb.pack(side="left")
+        self.need_only_btn.pack(side="left")
 
-        bench_tree_container = tk.Frame(self.right_frame, bg="#1e293b")
-        bench_tree_container.pack(fill="both", expand=True)
+        self.bench_tree_container = tk.Frame(self.right_frame, bg=t["bg_card"])
+        self.bench_tree_container.pack(fill="both", expand=True)
 
         bench_cols = ("status", "tier", "role")
-        self.bench_tree = ttk.Treeview(bench_tree_container, columns=bench_cols, show="tree headings")
+        self.bench_tree = ttk.Treeview(self.bench_tree_container, columns=bench_cols, show="tree headings")
         self._configure_bench_columns(self.bench_tree)
-        bench_scroll = ttk.Scrollbar(bench_tree_container, orient="vertical", command=self.bench_tree.yview)
+        bench_scroll = ttk.Scrollbar(self.bench_tree_container, orient="vertical", command=self.bench_tree.yview)
         self.bench_tree.configure(yscrollcommand=bench_scroll.set)
 
         self.bench_tree.pack(side="left", fill="both", expand=True)
@@ -636,44 +1029,241 @@ class AramTrackerApp:
         self.bench_tree.bind("<Double-1>", lambda _e: self._trigger_tree_action(self.bench_tree))
         self.bench_tree.bind("<<TreeviewSelect>>", lambda _e: self._clear_other_selection(self.team_tree))
 
-        split_pane.add(left_frame, minsize=410, width=510)
-        split_pane.add(self.right_frame, minsize=380, width=500)
+        self.split_pane.add(self.left_frame, minsize=420, width=540)
+        self.split_pane.add(self.right_frame, minsize=380, width=490)
 
-        # ================= TAB 2: ALL CHAMPIONS LIST =================
-        self.tab_all = tk.Frame(self.notebook, bg="#0f172a")
-        self.notebook.add(self.tab_all, text="📋 All Champions (0)")
+        # ================= TAB 2: ALL CHAMPIONS CATALOG =================
+        self.tab_all = tk.Frame(self.notebook, bg=t["bg_root"])
+        self.notebook.add(self.tab_all, text="Champion Catalog (0)")
 
-        filter_bar = tk.Frame(self.tab_all, bg="#0f172a", pady=6)
-        filter_bar.pack(fill="x", padx=6)
+        self.filter_bar_container = tk.Frame(self.tab_all, bg=t["border"], bd=1)
+        self.filter_bar_container.pack(fill="x", padx=6, pady=6)
 
-        tk.Label(filter_bar, text="🔍", fg="#cbd5e1", bg="#0f172a",
-                 font=("Segoe UI", 10)).pack(side="left", padx=(0, 4))
-        search_entry = tk.Entry(filter_bar, textvariable=self.search_var,
-                                bg="#1e293b", fg="#ffffff", insertbackground="#ffffff",
-                                relief="flat", font=("Segoe UI", 10), width=20)
-        search_entry.pack(side="left", padx=(0, 10), ipady=3)
+        self.filter_bar = tk.Frame(self.filter_bar_container, bg=t["bg_card"], padx=12, pady=6)
+        self.filter_bar.pack(fill="x")
+
+        self.search_box_all = tk.Frame(self.filter_bar, bg=t["border"], bd=1)
+        self.search_box_all.pack(side="left", padx=(0, 12))
+
+        self.search_box_all_lbl = tk.Label(self.search_box_all, text="SEARCH:", fg=t["text_secondary"], bg=t["bg_sub"], font=("Segoe UI", 8, "bold"), padx=6)
+        self.search_box_all_lbl.pack(side="left")
+        self.search_entry = tk.Entry(
+            self.search_box_all, textvariable=self.search_var,
+            bg=t["bg_sub"], fg=t["text_primary"], insertbackground=t["text_primary"],
+            relief="flat", bd=0, font=("Segoe UI", 9), width=22
+        )
+        self.search_entry.pack(side="left", padx=4, ipady=3)
         self.search_var.trace_add("write", lambda *_: self._refresh_all_tree())
 
-        for mode in ("All", "⭐ Need Grade", "✅ Completed"):
-            rb = tk.Radiobutton(
-                filter_bar, text=mode, variable=self.filter_var, value=mode,
-                command=self._refresh_all_tree, bg="#0f172a", fg="#cbd5e1",
-                selectcolor="#1e293b", activebackground="#0f172a",
-                activeforeground="#ffffff", font=("Segoe UI", 9, "bold")
-            )
-            rb.pack(side="left", padx=4)
+        self.catalog_filter = SegmentedControl(
+            self.filter_bar,
+            options=[
+                ("All", "ALL CHAMPIONS"),
+                ("Need", "NEED GRADE"),
+                ("Completed", "COMPLETED"),
+            ],
+            variable=self.filter_var,
+            command=self._refresh_all_tree,
+            bg=t["bg_card"],
+            active_bg=t["bg_hover"],
+            active_fg=t["accent_primary"],
+            normal_bg=t["bg_sub"],
+            normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"],
+            border_color=t["border"],
+            font=("Segoe UI", 8, "bold"),
+            padx=10, pady=4
+        )
+        self.catalog_filter.pack(side="left")
 
-        tree_frame = tk.Frame(self.tab_all, bg="#0f172a")
-        tree_frame.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        self.tree_frame = tk.Frame(self.tab_all, bg=t["border"], bd=1)
+        self.tree_frame.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
         all_cols = ("status", "tier", "role")
-        self.all_tree = ttk.Treeview(tree_frame, columns=all_cols, show="tree headings")
+        self.all_tree = ttk.Treeview(self.tree_frame, columns=all_cols, show="tree headings")
         self._configure_all_columns(self.all_tree)
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.all_tree.yview)
+        scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.all_tree.yview)
         self.all_tree.configure(yscrollcommand=scrollbar.set)
 
         self.all_tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+    def _open_theme_menu(self):
+        t = THEMES[self.current_theme]
+        menu = tk.Menu(
+            self.root, tearoff=0,
+            bg=t["bg_sub"], fg=t["text_primary"],
+            activebackground=t["action_btn_bg"], activeforeground="#ffffff",
+            font=("Segoe UI", 9)
+        )
+        for key, data in THEMES.items():
+            prefix = "●  " if self.current_theme == key else "    "
+            menu.add_command(
+                label=f"{prefix}{data['name']}",
+                command=lambda k=key: self._apply_theme(k)
+            )
+        try:
+            x = self.theme_btn.winfo_rootx()
+            y = self.theme_btn.winfo_rooty() + self.theme_btn.winfo_height() + 2
+            menu.post(x, y)
+        except Exception:
+            pass
+
+    def _apply_theme(self, theme_key, save_to_config=True):
+        if theme_key not in THEMES:
+            return
+        self.current_theme = theme_key
+        if save_to_config:
+            save_config_value("theme", theme_key)
+
+        t = THEMES[theme_key]
+        self.theme_btn.config(text=f"Theme: {t['name'].split()[0]} ▾")
+
+        # Root and Containers
+        self.root.configure(bg=t["bg_root"])
+        self.header_container.configure(bg=t["border"])
+        self.header_nav.configure(bg=t["bg_header"])
+        self.brand_col.configure(bg=t["bg_header"])
+        self.brand_row.configure(bg=t["bg_header"])
+        self.status_row.configure(bg=t["bg_header"])
+        self.title_lbl.configure(fg=t["accent_primary"], bg=t["bg_header"])
+        self.version_pill.configure(fg=t["text_secondary"], bg=t["bg_sub"])
+        self.status_dot.configure(bg=t["bg_header"])
+        self.status_lbl.configure(bg=t["bg_header"])
+        self.mode_frame.configure(bg=t["bg_header"])
+        self.controls_col.configure(bg=t["bg_header"])
+
+        # Control Buttons
+        self.pin_btn.configure(
+            bg=t["bg_hover"] if self.always_on_top.get() else t["bg_sub"],
+            fg=t["accent_secondary"] if self.always_on_top.get() else t["text_secondary"],
+            activebackground=t["bg_hover"], activeforeground=t["text_primary"]
+        )
+        self.theme_btn.configure(bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"])
+        self.folder_btn.configure(bg=t["bg_sub"], fg=t["text_secondary"], activebackground=t["bg_hover"], activeforeground=t["text_primary"])
+
+        # Milestone Card
+        self.milestone_card.configure(bg=t["border"])
+        self.m_inner.configure(bg=t["bg_card"])
+        self.tier_col.configure(bg=t["bg_card"])
+        self.milestone_tier_frame.configure(bg=t["border"])
+        self.milestone_pts_lbl.configure(bg=t["bg_card"])
+        self.center_col.configure(bg=t["bg_card"])
+        self.progress_text_row.configure(bg=t["bg_card"])
+        self.progress_count_lbl.configure(fg=t["text_primary"], bg=t["bg_card"])
+        self.target_col.configure(bg=t["bg_card"])
+        self.next_milestone_lbl.configure(fg=t["text_secondary"], bg=t["bg_card"])
+
+        # Tabs & Lobby Elements
+        self.tab_lobby.configure(bg=t["bg_root"])
+        self.top_bar_container.configure(bg=t["border"])
+        self.top_bar.configure(bg=t["bg_card"])
+        self.lobby_banner.configure(bg=t["bg_card"])
+        self.action_btn.configure(bg=t["action_btn_bg"], activebackground=t["action_btn_hover"])
+        self.split_pane.configure(bg=t["bg_root"])
+        self.left_frame.configure(bg=t["border"])
+        self.right_frame.configure(bg=t["border"])
+        self.team_header_lbl.configure(bg=t["bg_header"], fg=t["accent_primary"])
+        self.bench_header_lbl.configure(bg=t["bg_header"], fg=t["accent_secondary"])
+        self.sr_filter_frame.configure(bg=t["bg_card"])
+        self.lane_row.configure(bg=t["bg_card"])
+        self.search_row.configure(bg=t["bg_card"])
+        self.search_box.configure(bg=t["border"])
+        self.search_box_lbl.configure(bg=t["bg_sub"], fg=t["text_secondary"])
+        self.sr_search_entry.configure(bg=t["bg_sub"], fg=t["text_primary"], insertbackground=t["text_primary"])
+        self.bench_tree_container.configure(bg=t["bg_card"])
+
+        # Tab 2 Elements
+        self.tab_all.configure(bg=t["bg_root"])
+        self.filter_bar_container.configure(bg=t["border"])
+        self.filter_bar.configure(bg=t["bg_card"])
+        self.search_box_all.configure(bg=t["border"])
+        self.search_box_all_lbl.configure(bg=t["bg_sub"], fg=t["text_secondary"])
+        self.search_entry.configure(bg=t["bg_sub"], fg=t["text_primary"], insertbackground=t["text_primary"])
+        self.tree_frame.configure(bg=t["border"])
+
+        # Segmented Controls
+        self.mode_selector.apply_theme(
+            bg=t["bg_header"], active_bg=t["bg_hover"], active_fg=t["accent_primary"],
+            normal_bg=t["bg_sub"], normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"], border_color=t["border"]
+        )
+        self.lane_selector.apply_theme(
+            bg=t["bg_card"], active_bg=t["accent_secondary"], active_fg=t["bg_root"],
+            normal_bg=t["bg_sub"], normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"], border_color=t["border"]
+        )
+        self.catalog_filter.apply_theme(
+            bg=t["bg_card"], active_bg=t["bg_hover"], active_fg=t["accent_primary"],
+            normal_bg=t["bg_sub"], normal_fg=t["text_secondary"],
+            hover_bg=t["bg_hover"], border_color=t["border"]
+        )
+
+        # TTK Styles
+        self.style.configure("TNotebook", background=t["bg_root"])
+        self.style.configure("TNotebook.Tab", background=t["bg_card"], foreground=t["text_secondary"])
+        self.style.map("TNotebook.Tab",
+                       background=[("selected", t["bg_hover"]), ("active", t["bg_sub"])],
+                       foreground=[("selected", t["accent_secondary"]), ("active", t["text_primary"])])
+
+        self.style.configure("Treeview",
+                             background=t["bg_card"],
+                             foreground=t["text_primary"],
+                             fieldbackground=t["bg_card"])
+        self.style.configure("Treeview.Heading",
+                             background=t["bg_header"],
+                             foreground=t["accent_primary"])
+        self.style.map("Treeview",
+                       background=[("selected", t["bg_hover"])])
+
+        # Treeview Row Tags
+        self.team_tree.tag_configure("need_you", background=t["tag_need_you_bg"], foreground=t["tag_need_you_fg"])
+        self.team_tree.tag_configure("done_you", background=t["tag_done_you_bg"], foreground=t["tag_done_you_fg"])
+        self.team_tree.tag_configure("need", background=t["tag_need_bg"], foreground=t["tag_need_fg"])
+        self.team_tree.tag_configure("done", background=t["tag_done_bg"], foreground=t["tag_done_fg"])
+
+        self.bench_tree.tag_configure("need", background=t["tag_need_bg"], foreground=t["tag_need_fg"])
+        self.bench_tree.tag_configure("done", background=t["tag_done_bg"], foreground=t["tag_done_fg"])
+        self.bench_tree.tag_configure("unavailable", background=t["tag_unavail_bg"], foreground=t["tag_unavail_fg"])
+
+        self.all_tree.tag_configure("need", background=t["tag_need_bg"], foreground=t["tag_need_fg"])
+        self.all_tree.tag_configure("done", background=t["tag_done_bg"], foreground=t["tag_done_fg"])
+
+        # Progress Bar
+        fill_col = t["progress_fill_sr"] if self.active_mode.get() == "SR" else t["progress_fill_aram"]
+        self.hextech_progress.apply_theme(
+            bg=t["bg_card"], track_color=t["bg_sub"], border_color=t["border"], fill_color=fill_col
+        )
+        self.progress_pct_lbl.config(fg=fill_col)
+
+    def _toggle_pin(self):
+        val = not self.always_on_top.get()
+        self.always_on_top.set(val)
+        self.root.attributes("-topmost", val)
+        t = THEMES[self.current_theme]
+        if val:
+            self.pin_btn.config(text="PIN: ON", bg=t["bg_hover"], fg=t["accent_secondary"])
+        else:
+            self.pin_btn.config(text="PIN", bg=t["bg_sub"], fg=t["text_secondary"])
+
+    def _toggle_need_only(self):
+        val = not self.sr_need_only_var.get()
+        self.sr_need_only_var.set(val)
+        t = THEMES[self.current_theme]
+        if val:
+            self.need_only_btn.config(bg=t["bg_hover"], fg=t["accent_secondary"])
+        else:
+            self.need_only_btn.config(bg=t["bg_sub"], fg=t["text_secondary"])
+        self._refresh_lobby_trees()
+
+    def _set_connection_status(self, is_connected, message):
+        t = THEMES[self.current_theme]
+        if is_connected:
+            self.status_dot.config(text="●", fg=t["accent_secondary"])
+            self.status_lbl.config(text=message, fg=t["accent_secondary"])
+        else:
+            self.status_dot.config(text="○", fg="#fbbf24")
+            self.status_lbl.config(text=message, fg="#fbbf24")
 
     def _is_champ_done(self, info):
         if self.active_mode.get() == "SR":
@@ -682,8 +1272,8 @@ class AramTrackerApp:
 
     def _status_labels(self):
         if self.active_mode.get() == "SR":
-            return "✅ S+ Earned", "⭐ NEED S+"
-        return "✅ S Earned", "⭐ NEED S"
+            return "S+ EARNED", "NEED S+"
+        return "S EARNED", "NEED S"
 
     def _get_effective_sr_lane(self):
         choice = self.sr_lane_var.get()
@@ -702,7 +1292,7 @@ class AramTrackerApp:
         folder = filedialog.askdirectory(title="Select your 'League of Legends' folder")
         if folder:
             save_lol_dir(folder)
-            self.status_lbl.config(text=f"📁 Saved folder: {folder}", fg="#38bdf8")
+            self._set_connection_status(False, f"Saved folder: {folder}")
 
     def _check_for_updates(self):
         if "/" not in GITHUB_REPO or "YOUR_GITHUB" in GITHUB_REPO:
@@ -719,8 +1309,8 @@ class AramTrackerApp:
                     if asset.get("name", "").lower().endswith(".exe"):
                         self.update_download_url = asset.get("browser_download_url")
                         self.latest_version = tag
-                        self.root.after(0, lambda: self.update_btn.config(text=f"🚀 Update to {tag}"))
-                        self.root.after(0, lambda: self.update_btn.pack(side="left", padx=4))
+                        self.root.after(0, lambda: self.update_btn.config(text=f"Update to {tag}"))
+                        self.root.after(0, lambda: self.update_btn.pack(side="right", padx=(0, 6)))
                         break
         except Exception:
             pass
@@ -732,7 +1322,7 @@ class AramTrackerApp:
         if not self.update_download_url:
             return
 
-        self.update_btn.config(text="⏳ Downloading...", state="disabled")
+        self.update_btn.config(text="Downloading...", state="disabled")
 
         def download_and_swap():
             try:
@@ -762,57 +1352,45 @@ class AramTrackerApp:
                 self.root.after(0, self.root.destroy)
             except Exception as e:
                 self.root.after(0, lambda err=str(e): messagebox.showerror("Update Failed", err))
-                self.root.after(0, lambda: self.update_btn.config(text="🚀 Retry Update", state="normal"))
+                self.root.after(0, lambda: self.update_btn.config(text="Retry Update", state="normal"))
 
         threading.Thread(target=download_and_swap, daemon=True).start()
 
     def _configure_team_columns(self, tree):
-        tree.heading("#0", text="Champion & Trade Status", anchor="w")
-        tree.column("#0", width=195, anchor="w", stretch=True)
+        tree.heading("#0", text="CHAMPION & ACTION", anchor="w")
+        tree.column("#0", width=175, minwidth=130, anchor="w", stretch=True)
 
-        tree.heading("player", text="Player (Riot ID)", anchor="w")
-        tree.heading("status", text="Challenge Status", anchor="center")
-        tree.heading("tier", text="Tier", anchor="center")
+        tree.heading("player", text="PLAYER (RIOT ID)", anchor="w")
+        tree.heading("status", text="STATUS", anchor="center")
+        tree.heading("tier", text="TIER", anchor="center")
 
-        tree.column("player", width=165, anchor="w", stretch=True)
-        tree.column("status", width=105, anchor="center", stretch=False)
-        tree.column("tier", width=50, anchor="center", stretch=False)
-
-        tree.tag_configure("need_you", background="#14532d", foreground="#86efac")
-        tree.tag_configure("done_you", background="#1e3a8a", foreground="#93c5fd")
-        tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
-        tree.tag_configure("done", background="#1e293b", foreground="#64748b")
+        tree.column("player", width=150, minwidth=110, anchor="w", stretch=True)
+        tree.column("status", width=95, minwidth=85, anchor="center", stretch=False)
+        tree.column("tier", width=50, minwidth=45, anchor="center", stretch=False)
 
     def _configure_bench_columns(self, tree):
-        tree.heading("#0", text="Champion", anchor="w")
-        tree.column("#0", width=175, anchor="w", stretch=True)
+        tree.heading("#0", text="CHAMPION", anchor="w")
+        tree.column("#0", width=165, minwidth=120, anchor="w", stretch=True)
 
-        tree.heading("status", text="Challenge Status", anchor="center")
-        tree.heading("tier", text="Tier", anchor="center")
-        tree.heading("role", text="Lanes / Role", anchor="center")
+        tree.heading("status", text="STATUS", anchor="center")
+        tree.heading("tier", text="TIER", anchor="center")
+        tree.heading("role", text="LANES / ROLE", anchor="center")
 
-        tree.column("status", width=105, anchor="center", stretch=False)
-        tree.column("tier", width=50, anchor="center", stretch=False)
-        tree.column("role", width=125, anchor="center", stretch=False)
-
-        tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
-        tree.tag_configure("done", background="#1e293b", foreground="#64748b")
-        tree.tag_configure("unavailable", background="#0f172a", foreground="#475569")
+        tree.column("status", width=95, minwidth=85, anchor="center", stretch=False)
+        tree.column("tier", width=50, minwidth=45, anchor="center", stretch=False)
+        tree.column("role", width=125, minwidth=100, anchor="center", stretch=False)
 
     def _configure_all_columns(self, tree):
-        tree.heading("#0", text="Champion", anchor="w")
-        tree.column("#0", width=230, anchor="w", stretch=True)
+        tree.heading("#0", text="CHAMPION", anchor="w")
+        tree.column("#0", width=240, anchor="w", stretch=True)
 
-        tree.heading("status", text="Challenge Status")
-        tree.heading("tier", text="ARAM Tier")
-        tree.heading("role", text="SR Lanes & Role")
+        tree.heading("status", text="STATUS", anchor="center")
+        tree.heading("tier", text="ARAM TIER", anchor="center")
+        tree.heading("role", text="SR LANES & ROLE", anchor="center")
 
         tree.column("status", width=150, anchor="center", stretch=False)
         tree.column("tier", width=100, anchor="center", stretch=False)
-        tree.column("role", width=180, anchor="center", stretch=False)
-
-        tree.tag_configure("need", background="#1e3a2f", foreground="#4ade80")
-        tree.tag_configure("done", background="#1e293b", foreground="#64748b")
+        tree.column("role", width=200, anchor="center", stretch=False)
 
     def _get_tk_icon(self, name):
         if name in self.tk_icons:
@@ -825,10 +1403,15 @@ class AramTrackerApp:
                 pil_img = Image.open(io.BytesIO(raw)).convert("RGBA")
                 resample = getattr(Image, "Resampling", Image).LANCZOS
                 pil_img = pil_img.resize(ICON_SIZE, resample)
+                try:
+                    draw = ImageDraw.Draw(pil_img)
+                    draw.rectangle([0, 0, ICON_SIZE[0] - 1, ICON_SIZE[1] - 1], outline=(30, 46, 74, 255))
+                except Exception:
+                    pass
                 tk_img = ImageTk.PhotoImage(pil_img)
             else:
                 full_img = tk.PhotoImage(data=base64.b64encode(raw))
-                scale = max(1, full_img.width() // 28)
+                scale = max(1, full_img.width() // 30)
                 tk_img = full_img.subsample(scale, scale)
             self.tk_icons[name] = tk_img
             return tk_img
@@ -842,11 +1425,9 @@ class AramTrackerApp:
             self._trigger_tree_action(self.team_tree)
 
     def _hover_sr_champion(self, get_json, patch_req, cid, champ_name):
-        """Hover/select a champion in Summoner's Rift Champ Select."""
         session = get_json("/lol-champ-select/v1/session")
         local_cell = session.get("localPlayerCellId", -1)
 
-        # Search for the local player's active or upcoming 'pick' action
         target_action_id = None
         for action_group in session.get("actions", []):
             for act in action_group:
@@ -859,11 +1440,10 @@ class AramTrackerApp:
 
         if target_action_id is not None:
             patch_req(f"/lol-champ-select/v1/session/actions/{target_action_id}", {"championId": cid})
-            return f"🎯 Hovered {champ_name} in Champ Select!"
+            return f"Hovered {champ_name} in Champ Select!"
 
-        # Fallback for Blind/Quickplay or pre-pick intent
         patch_req("/lol-champ-select/v1/session/my-selection", {"championId": cid})
-        return f"🎯 Selected {champ_name}!"
+        return f"Selected {champ_name}!"
 
     def _trigger_tree_action(self, tree):
         sel = tree.selection()
@@ -879,10 +1459,10 @@ class AramTrackerApp:
         champ_name = entry.get("champ", "Champion")
 
         if action == "self":
-            self.status_lbl.config(text=f"ℹ️ You already have {champ_name}!", fg="#38bdf8")
+            self._set_connection_status(True, f"You already have {champ_name}!")
             return
         if not action:
-            self.status_lbl.config(text=f"⚠️ Cannot trade/swap {champ_name} right now.", fg="#fbbf24")
+            self._set_connection_status(True, f"Cannot trade or swap {champ_name} right now.")
             return
 
         def run_action():
@@ -890,21 +1470,20 @@ class AramTrackerApp:
                 get_json, _, post_req, patch_req = lcu_client()
                 if action == "bench" and cid:
                     post_req(f"/lol-champ-select/v1/session/bench/swap/{cid}")
-                    msg = f"✅ Grabbed {champ_name} from the bench!"
+                    msg = f"Grabbed {champ_name} from the bench!"
                 elif action == "sr_hover" and cid:
                     msg = self._hover_sr_champion(get_json, patch_req, cid, champ_name)
                 elif action == "trade_acc" and tid is not None:
                     post_req(f"/lol-champ-select/v1/session/champion-swaps/{tid}/accept")
-                    msg = f"✅ Accepted trade for {champ_name}!"
+                    msg = f"Accepted trade for {champ_name}!"
                 elif action == "trade_req" and tid is not None:
                     post_req(f"/lol-champ-select/v1/session/champion-swaps/{tid}/request")
-                    msg = f"📨 Sent trade request for {champ_name}!"
+                    msg = f"Sent trade request for {champ_name}!"
                 else:
-                    msg = f"⚠️ Action unavailable for {champ_name}."
-                self.root.after(0, lambda m=msg: self.status_lbl.config(text=m, fg="#4ade80"))
+                    msg = f"Action unavailable for {champ_name}."
+                self.root.after(0, lambda m=msg: self._set_connection_status(True, m))
             except Exception as e:
-                self.root.after(0, lambda err=str(e): self.status_lbl.config(
-                    text=f"⚠️ Action failed: {err[:45]}", fg="#f87171"))
+                self.root.after(0, lambda err=str(e): self._set_connection_status(False, f"Action failed: {err[:45]}"))
 
         threading.Thread(target=run_action, daemon=True).start()
 
@@ -944,9 +1523,9 @@ class AramTrackerApp:
         lane_badge = f" {LANE_SHORT_BADGE[mapped_lane]}" if mapped_lane in LANE_SHORT_BADGE else ""
 
         if is_me:
-            base = f"👤 {name_str}" if name_str else "👤 You"
+            base = f"{name_str} [YOU]" if name_str else "You [YOU]"
             return f"{base}{lane_badge}"
-        base = f"👥 {name_str}" if name_str else f"👥 Teammate {slot_idx}"
+        base = name_str if name_str else f"Teammate {slot_idx}"
         return f"{base}{lane_badge}"
 
     def _extract_standard_milestones(self, c_obj):
@@ -1041,15 +1620,11 @@ class AramTrackerApp:
             self.root.after(0, self._refresh_lobby_trees)
 
     def _detect_queue_and_lane(self, get_json, cs_session=None):
-        """
-        Detect whether the player is in an ARAM or Summoner's Rift queue,
-        and detect their assigned/selected lane (Top, Jungle, Mid, Bot, Support).
-        """
         detected_mode = None
         q_label = ""
         lane = ""
 
-        # 1. Check Champ Select assignedPosition first if in Champ Select
+        # 1. Champ select assignedPosition
         if cs_session is not None:
             local_cell = cs_session.get("localPlayerCellId", -1)
             for m in cs_session.get("myTeam", []):
@@ -1058,7 +1633,7 @@ class AramTrackerApp:
                     lane = POSITION_MAP.get(raw_pos, "")
                     break
 
-        # 2. Check Gameflow session
+        # 2. Gameflow session
         try:
             gf = get_json("/lol-gameflow/v1/session")
             gdata = gf.get("gameData", {})
@@ -1074,7 +1649,7 @@ class AramTrackerApp:
         except Exception:
             pass
 
-        # 3. Check Pre-Game Lobby (/lol-lobby/v2/lobby) for queue mode & selected position preference
+        # 3. Pre-Game Lobby
         try:
             lob = get_json("/lol-lobby/v2/lobby")
             gcfg = lob.get("gameConfig", {})
@@ -1093,7 +1668,7 @@ class AramTrackerApp:
         except Exception:
             pass
 
-        # 4. Fallback to Champ Select benchEnabled flag
+        # 4. Fallback to Champ Select benchEnabled
         if not detected_mode and cs_session is not None:
             if cs_session.get("benchEnabled", False):
                 detected_mode, q_label = "ARAM", "ARAM"
@@ -1135,7 +1710,6 @@ class AramTrackerApp:
         swaps_list = session.get("championSwaps") or session.get("trades", [])
         cell_trades = {t.get("cellId"): t for t in swaps_list}
 
-        # Collect banned champion IDs in Draft/Ranked
         banned_ids = set()
         bans_obj = session.get("bans", {})
         for b_list in (bans_obj.get("myTeamBans", []), bans_obj.get("theirTeamBans", [])):
@@ -1173,13 +1747,13 @@ class AramTrackerApp:
                 act = "self"
             else:
                 if tstate == "RECEIVED":
-                    display_champ = f"{display_champ}  📩 Accept!"
+                    display_champ = f"{display_champ}   [ACCEPT TRADE]"
                     act = "trade_acc"
                 elif tstate == "SENT":
-                    display_champ = f"{display_champ}  ⏳ Sent"
+                    display_champ = f"{display_champ}   [REQUEST SENT]"
                     act = None
                 elif tstate == "AVAILABLE" and tid is not None:
-                    display_champ = f"{display_champ}  🔄"
+                    display_champ = f"{display_champ}   [TRADE]"
                     act = "trade_req"
                 else:
                     act = None
@@ -1245,36 +1819,34 @@ class AramTrackerApp:
                         self.root.after(0, self._refresh_lobby_trees)
 
             except FileNotFoundError:
-                self.root.after(0, lambda: self.status_lbl.config(
-                    text="⏳ Waiting for League client... (or click '📁 Set LoL Folder')", fg="#fbbf24"))
+                self.root.after(0, lambda: self._set_connection_status(
+                    False, "Waiting for League client... (or click 'LoL Folder')"))
             except Exception as e:
-                self.root.after(0, lambda err=str(e): self.status_lbl.config(
-                    text=f"⚠️ Client loading ({err[:35]})", fg="#f87171"))
+                self.root.after(0, lambda err=str(e): self._set_connection_status(
+                    False, f"Client loading ({err[:35]})"))
 
             time.sleep(0.8)
 
     def _update_dashboard(self):
         mode = self.active_mode.get()
+        t = THEMES[self.current_theme]
         total = len(self.champs)
         done = sum(1 for v in self.champs.values() if self._is_champ_done(v))
         rem = total - done
         pct = (done / total * 100) if total else 0
 
-        if mode == "SR":
-            self.title_lbl.config(text=f"🏔️ Summoner's Rift: Perfectionist (S+ Only)  •  v{APP_VERSION}")
-            grade_short = "S+"
-        else:
-            self.title_lbl.config(text=f"❄️ ARAM: All Random All Champions (S-)  •  v{APP_VERSION}")
-            grade_short = "S-"
+        grade_short = "S+" if mode == "SR" else "S-"
 
-        auto_txt = f"🎯 Auto ({self.assigned_lane})" if self.assigned_lane else "🎯 Auto (All)"
-        self.auto_lane_rb.config(text=auto_txt)
+        # Update Lane selector Auto label
+        auto_txt = f"AUTO ({self.assigned_lane.upper()})" if self.assigned_lane else "AUTO"
+        self.lane_selector.set_label_text("Auto", auto_txt)
 
+        # Update Connection & Queue status
         q_suffix = f"  •  Queue: {self.detected_queue_label}" if self.detected_queue_label else ""
         lane_suffix = f" ({self.assigned_lane})" if (mode == "SR" and self.assigned_lane) else ""
-        self.status_lbl.config(text=f"🟢 Connected to League Client{q_suffix}{lane_suffix}", fg="#4ade80")
-        self.progress_lbl.config(text=f"✅ {done} ({grade_short})  |  ⭐ {rem} Left ({pct:.1f}%)")
+        self._set_connection_status(True, f"Connected to League Client{q_suffix}{lane_suffix}")
 
+        # Update Milestone calculations
         milestones = self.milestones_by_mode.get(mode, DEFAULT_MILESTONES)
         cur_tier, cur_pts = "Unranked", 0
         next_target, next_tier, next_pts = None, None, None
@@ -1285,20 +1857,35 @@ class AramTrackerApp:
             elif next_target is None:
                 next_target, next_tier, next_pts = req_count, tier_name, pts
 
-        self.milestone_lbl.config(text=f"🏆 Current Milestone: {cur_tier} ({cur_pts} pts)")
+        tier_key = cur_tier.upper()
+        fg_col, bg_col, border_col = TIER_COLORS.get(tier_key, TIER_COLORS["UNRANKED"])
+        self.milestone_tier_lbl.config(text=tier_key, fg=fg_col, bg=bg_col)
+        self.milestone_tier_frame.config(bg=border_col)
+        self.milestone_pts_lbl.config(text=f"{cur_pts} PTS", fg=t["accent_primary"])
+
+        # Update Progress Bar & Hero Card
+        fill_col = t["progress_fill_sr"] if mode == "SR" else t["progress_fill_aram"]
+        self.hextech_progress.fill_color = fill_col
+        self.hextech_progress.set_progress(done, total)
+
+        self.progress_count_lbl.config(text=f"{done} / {total} Champions Completed", fg=t["text_primary"])
+        self.progress_pct_lbl.config(text=f"{pct:.1f}%", fg=fill_col)
+        self.needed_summary_lbl.config(text=f"{rem} Need {grade_short}")
 
         if next_target is not None:
             needed = next_target - done
             diff_pts = next_pts - cur_pts
             self.next_milestone_lbl.config(
-                text=f"🎯 Next: {next_tier} ({next_pts} pts, +{diff_pts}) in {needed} champs ({done}/{next_target})"
+                text=f"Next: {next_tier} ({next_pts} pts, +{diff_pts}) in {needed} champs ({done}/{next_target})",
+                fg=t["text_secondary"]
             )
         else:
             self.next_milestone_lbl.config(
-                text=f"👑 Max Milestone Reached! ({rem} left for 100%)"
+                text=f"Max Milestone Reached! ({rem} left for 100%)",
+                fg=t["text_secondary"]
             )
 
-        self.notebook.tab(1, text=f"📋 All Champions ({total})")
+        self.notebook.tab(1, text=f"Champion Catalog ({total})")
         self._refresh_all_tree()
         self._refresh_lobby_trees()
 
@@ -1309,9 +1896,9 @@ class AramTrackerApp:
 
         done_lbl, need_lbl = self._status_labels()
         mode = self.active_mode.get()
-        mode_tag = "🏔️ SR Perfectionist (S+)" if mode == "SR" else "❄️ ARAM (S-)"
+        t = THEMES[self.current_theme]
+        mode_tag = "SR Perfectionist (S+)" if mode == "SR" else "ARAM (S-)"
 
-        # Show or hide the Summoner's Rift Lane Filter Bar above the right tree
         if mode == "SR":
             self.sr_filter_frame.pack(fill="x", before=self.bench_tree.master)
         else:
@@ -1334,7 +1921,7 @@ class AramTrackerApp:
             status_txt = done_lbl if is_done else need_lbl
             if item["is_me"]:
                 tag = "done_you" if is_done else "need_you"
-                my_champ_summary = f"👤 Your Pick: {name} ({status_txt})   •   "
+                my_champ_summary = f"Your Pick: {name} [{status_txt}]  •  "
             else:
                 tag = "done" if is_done else "need"
 
@@ -1348,12 +1935,12 @@ class AramTrackerApp:
             )
             self.row_actions[row_id] = item
 
-        self.team_header_lbl.config(text=f"👥 YOUR TEAM ({len(self.team_lobby)}) — Double-Click Teammate to Trade")
+        self.team_header_lbl.config(text=f"YOUR TEAM ({len(self.team_lobby)})  •  Double-Click to Trade")
 
         # 2. Populate Right Tree: Either ARAM Bench OR Summoner's Rift Lane Pool
         if mode == "ARAM":
-            self.bench_tree.heading("#0", text="Bench Champion", anchor="w")
-            self.bench_tree.heading("role", text="Primary Role", anchor="center")
+            self.bench_tree.heading("#0", text="BENCH CHAMPION", anchor="w")
+            self.bench_tree.heading("role", text="PRIMARY ROLE", anchor="center")
 
             sorted_bench = sorted(
                 self.bench_lobby,
@@ -1386,19 +1973,19 @@ class AramTrackerApp:
                 self.row_actions[row_id] = item
 
             total_lobby = len(self.team_lobby) + len(self.bench_lobby)
-            self.notebook.tab(0, text=f"🎯 Live Lobby ({total_lobby})")
-            self.bench_header_lbl.config(text=f"🪑 REROLL BENCH ({len(self.bench_lobby)}) — Double-Click to Grab")
+            self.notebook.tab(0, text=f"Live Lobby ({total_lobby})")
+            self.bench_header_lbl.config(text=f"REROLL BENCH ({len(self.bench_lobby)})  •  Double-Click to Grab")
 
             if not self.team_lobby and not self.bench_lobby:
                 self.lobby_banner.config(
-                    text=f"[{mode_tag}] Not in Champ Select — Enter a lobby to scan automatically!",
-                    fg="#94a3b8"
+                    text=f"[{mode_tag}] Waiting for Champ Select  •  Enter a lobby to scan automatically",
+                    fg=t["text_secondary"]
                 )
             else:
                 total_need = need_team + need_bench
                 self.lobby_banner.config(
-                    text=f"[{mode_tag}]  {my_champ_summary}🪑 Bench Needs: {need_bench}   •   👥 Team Needs: {need_team}",
-                    fg="#4ade80" if total_need > 0 else "#38bdf8"
+                    text=f"[{mode_tag}]  {my_champ_summary}Bench Needs: {need_bench}   •   Team Needs: {need_team}",
+                    fg=t["accent_secondary"] if total_need > 0 else t["accent_primary"]
                 )
         else:
             # SUMMONER'S RIFT LANE POOL
@@ -1406,8 +1993,8 @@ class AramTrackerApp:
             sr_query = self.sr_search_var.get().strip().lower()
             only_need = self.sr_need_only_var.get()
 
-            self.bench_tree.heading("#0", text=f"SR Champion ({target_lane})", anchor="w")
-            self.bench_tree.heading("role", text="SR Lanes", anchor="center")
+            self.bench_tree.heading("#0", text=f"SR CHAMPION ({target_lane.upper()})", anchor="w")
+            self.bench_tree.heading("role", text="SR LANES", anchor="center")
 
             pool_names = []
             for name, info in self.champs.items():
@@ -1420,7 +2007,6 @@ class AramTrackerApp:
                     continue
                 pool_names.append(name)
 
-            # Sort: Available first -> Need S+ first -> Primary lane match first -> Name
             pool_names.sort(
                 key=lambda n: (
                     (self.champs[n]["id"] in self.banned_ids or n in picked_champ_names),
@@ -1446,10 +2032,10 @@ class AramTrackerApp:
                 is_picked = name in picked_champ_names
 
                 if is_banned:
-                    disp_name = f"  {name}  🚫 Banned"
+                    disp_name = f"  {name}   [BANNED]"
                     tag = "unavailable"
                 elif is_picked:
-                    disp_name = f"  {name}  👥 Picked"
+                    disp_name = f"  {name}   [PICKED]"
                     tag = "done" if is_done else "need"
                 else:
                     disp_name = f"  {name}"
@@ -1475,13 +2061,13 @@ class AramTrackerApp:
 
             lane_title = f"{target_lane} Lane" if target_lane != "All" else "All Lanes"
             self.bench_header_lbl.config(
-                text=f"🗺️ SR {lane_title.upper()} POOL ({need_lane_count} Need S+ / {len(pool_names)} Shown) — Double-Click to Hover"
+                text=f"SR {lane_title.upper()} POOL ({need_lane_count} Need S+ / {len(pool_names)} Total)  •  Double-Click to Hover"
             )
-            self.notebook.tab(0, text=f"🎯 Live Lobby ({len(self.team_lobby)})")
+            self.notebook.tab(0, text=f"Live Lobby ({len(self.team_lobby)})")
 
             self.lobby_banner.config(
-                text=f"[{mode_tag}]  {my_champ_summary}🗺️ {lane_title}: ⭐ {need_lane_count} Need S+  •  ✅ {done_lane_count} Done",
-                fg="#4ade80" if need_lane_count > 0 else "#38bdf8"
+                text=f"[{mode_tag}]  {my_champ_summary}{lane_title}: {need_lane_count} Need S+  •  {done_lane_count} Done",
+                fg=t["accent_secondary"] if need_lane_count > 0 else t["accent_primary"]
             )
 
     def _refresh_all_tree(self):
@@ -1495,9 +2081,9 @@ class AramTrackerApp:
             is_done = self._is_champ_done(info)
             lanes_str = f"{' / '.join(info.get('lanes', ()))} ({info['role']})"
 
-            if fmode == "⭐ Need Grade" and is_done:
+            if fmode == "Need" and is_done:
                 continue
-            if fmode == "✅ Completed" and not is_done:
+            if fmode == "Completed" and not is_done:
                 continue
             if query and query not in name.lower() and query not in lanes_str.lower():
                 continue

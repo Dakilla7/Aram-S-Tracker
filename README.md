@@ -12,19 +12,19 @@ A lightweight, local desktop application for League of Legends designed to track
 
 ## ✨ Features
 
-* **🔄 Automatic Game Mode & Challenge Switching:**
-  * **❄️ ARAM & ARAM Mayhem:** Automatically tracks **All Random All Champions** (`⭐ NEED S` / `✅ S Earned`).
-  * **🏔️ Summoner's Rift (Normal, Draft, Swiftplay, Ranked Solo/Duo & Flex):** Automatically switches to track **Perfectionist** (`⭐ NEED S+` / `✅ S+ Earned`). You can also toggle between modes manually at any time in the top bar.
-* **👥 Split-Pane Live Lobby Scanner:** Mirrors the League Client layout with **Your Team** on the left (displaying teammates' Riot IDs, assigned lanes, and live trade indicators like `🔄`, `⏳ Sent`, and `📩 Accept!`) and the **Reroll Bench / SR Lane Pool** on the right.
-* **🗺️ Smart Summoner's Rift Lane Pool:** Automatically detects your assigned lane (`Top`, `Jungle`, `Mid`, `Bot`, `Support`) in Summoner's Rift lobbies and lists champions for your role sorted with `⭐ NEED S+` at the top. Includes quick lane filter buttons (`🎯 Auto`, `🛡️ Top`, `🌲 Jg`, `🔮 Mid`, `🏹 Bot`, `✨ Sup`, `🌐 All`), a search bar, and live `🚫 Banned` / `👥 Picked` indicators in Draft.
-* **⚡ 1-Click Bench Swap, Trade & SR Hover:**
+* **Automatic Game Mode & Challenge Switching:**
+  * **ARAM & ARAM Mayhem:** Automatically tracks **All Random All Champions** (`NEED S` / `S EARNED`).
+  * **Summoner's Rift (Normal, Draft, Swiftplay, Ranked Solo/Duo & Flex):** Automatically switches to track **Perfectionist** (`NEED S+` / `S+ EARNED`). You can also toggle between modes manually at any time using the top segmented mode selector.
+* **Split-Pane Live Lobby Scanner:** Mirrors the League Client layout with **Your Team** on the left (displaying teammates' Riot IDs, assigned lanes, local `[YOU]` highlight, and live trade indicators like `[TRADE]`, `[REQUEST SENT]`, and `[ACCEPT TRADE]`) and the **Reroll Bench / SR Lane Pool** on the right.
+* **Smart Summoner's Rift Lane Pool:** Automatically detects your assigned lane (`Top`, `Jungle`, `Mid`, `Bot`, `Support`) in Summoner's Rift lobbies and lists champions for your role sorted with `NEED S+` at the top. Includes segmented lane filter pills (`AUTO`, `TOP`, `JG`, `MID`, `BOT`, `SUP`, `ALL`), instant search bar, and live `[BANNED]` / `[PICKED]` indicators in Draft.
+* **1-Click Bench Swap, Trade & SR Hover:**
   * **In ARAM:** Double-click any champion on the reroll bench to grab it immediately, or double-click a teammate to request/accept a champion trade.
   * **In Summoner's Rift:** Double-click any available champion in the Lane Pool to hover/select it directly in Champ Select.
-* **🏆 Milestone & Point Tracker:** Displays your current challenge milestone rank (`Iron` through `Master`), capstone points, and how many champions you need to reach the next tier.
-* **📁 Auto-Detects League Installation:** Automatically locates your `League of Legends` directory across any drive using Riot Client metadata—no manual path setup required (includes a fallback **📁 Set LoL Folder** button for custom setups).
-* **📌 Always-on-Top Floating Mode:** Pin the window so it stays visible right next to your League Client during Champ Select.
-* **🚀 Built-in Auto-Updater:** Checks GitHub Releases on launch and updates itself to the latest `.exe` with a single click.
-* **🔒 100% Safe:** Connects exclusively to the local League Client Update (LCU) API via standard client endpoints.
+* **Hero Milestone & Progress Card:** Displays your current challenge milestone rank (`Iron` through `Master`) with dynamic tier color badges, capstone points, a custom Hextech Progress Bar, and exact champion targets to reach the next tier.
+* **Auto-Detects League Installation:** Automatically locates your `League of Legends` directory across any drive using Riot Client metadata—no manual path setup required (includes a fallback **LoL Folder** button for custom setups).
+* **Always-on-Top Floating Mode:** Pin the window so it stays visible right next to your League Client during Champ Select.
+* **Built-in Auto-Updater:** Checks GitHub Releases on launch and updates itself to the latest `.exe` with a single click.
+* **100% Safe:** Connects exclusively to the local League Client Update (LCU) API via standard client endpoints.
 
 ---
 
