@@ -590,7 +590,7 @@ class AramTrackerApp:
             ("Mid", "🔮 Mid"),
             ("Bot", "🏹 Bot"),
             ("Support", "✨ Sup"),
-            ("All", "🌐 All"),
+            ("All", "All"),
         ):
             rb = tk.Radiobutton(
                 lane_row, text=lane_txt, variable=self.sr_lane_var, value=lane_val,
