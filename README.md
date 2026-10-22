@@ -5,8 +5,8 @@ A lightweight, local desktop application for League of Legends designed to track
 ---
 
 <p align="center">
-    <img width="1079" height="749" alt="1-4-3 aram" src="https://github.com/user-attachments/assets/43b3b4b5-f387-4dce-bfce-086a5619d6a6" />
-    <img width="1082" height="751" alt="1-4-3 rift" src="https://github.com/user-attachments/assets/f2be87d4-2798-41db-a1af-c73b3528b47a" />
+    <img width="1079" height="1656" alt="1-4-3 aram" src="https://github.com/user-attachments/assets/641f15f8-875a-4b60-949a-024d7eb581dc" />
+
 </p>
 
 ---
