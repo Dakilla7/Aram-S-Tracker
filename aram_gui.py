@@ -24,7 +24,7 @@ except Exception:
 urllib3.disable_warnings()
 
 # ================= VERSION & AUTO-UPDATER SETTINGS =================
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 GITHUB_REPO = "Dakilla7/Aram-S-Tracker"
 # ===================================================================
 
